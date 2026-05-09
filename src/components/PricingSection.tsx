@@ -1,440 +1,285 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Check, CreditCard, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { type ImportantDateItem, type PricingRow, toLocalDate, useConferenceSettings } from "@/lib/conferenceSettings";
 
 const PENDING_REGISTRATION_KEY = "pendingRegistration";
+const SERVICE_CHARGE_RATE = 0.05;
 
-type PlanKey = "speaker" | "poster" | "student" | "delegate";
+type CategoryKey =
+  | "pre-speaker"
+  | "pre-poster"
+  | "pre-student"
+  | "pre-delegate"
+  | "pre-virtual"
+  | "early-speaker"
+  | "early-poster"
+  | "early-student"
+  | "early-delegate"
+  | "early-virtual"
+  | "mid-speaker"
+  | "mid-poster"
+  | "mid-student"
+  | "mid-delegate"
+  | "onspot-speaker"
+  | "onspot-poster"
+  | "onspot-student"
+  | "onspot-delegate";
 
-type PaymentProvider = "stripe" | "paypal";
+type RegistrationCategory = {
+  key: CategoryKey;
+  label: string;
+  price: number;
+};
 
-export interface RegistrationFormValues {
+type RegistrationGroup = {
   title: string;
-  fullName: string;
+  date: string;
+  startDate?: Date;
+  endDate: Date;
+  categories: RegistrationCategory[];
+};
+
+type FormValues = {
+  title: string;
+  name: string;
   email: string;
   phone: string;
-  affiliation: string;
+  altEmail: string;
+  whatsApp: string;
+  organization: string;
   country: string;
-  designation: string;
-  notes: string;
-}
-
-type RegistrationField =
-  | "title"
-  | "fullName"
-  | "email"
-  | "phone"
-  | "affiliation"
-  | "country"
-  | "designation"
-  | "affiliationType";
-
-const plans: Array<{ key: PlanKey; name: string; price: number; color: string; featured?: boolean }> = [
-  { key: "speaker", name: "Speaker", price: 149, color: "from-teal to-[#126c70]", featured: true },
-  { key: "poster", name: "Poster", price: 99, color: "from-[#126c70] to-teal" },
-  { key: "student", name: "Student Listener", price: 59, color: "from-gold to-gold-light" },
-  { key: "delegate", name: "Delegate", price: 49, color: "from-teal to-gold" },
-];
-
-const features = [
-  "Live and recorded session access",
-  "E-copy of Abstract Book and Program",
-  "E-Certificate",
-  "Publication support in proceedings",
-  "Digital networking access",
-  "Award eligibility",
-];
-
-const designationOptions = [
-  "Student",
-  "Research Scholar",
-  "Postdoctoral Researcher",
-  "Professor",
-  "Associate Professor",
-  "Assistant Professor",
-  "Scientist",
-  "Industry Professional",
-  "Entrepreneur",
-  "Other",
-];
+};
 
 const titleOptions = ["Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
 
 const countryOptions = [
-  "Afghanistan",
-  "Albania",
-  "Algeria",
-  "Andorra",
-  "Angola",
-  "Antigua and Barbuda",
-  "Argentina",
-  "Armenia",
   "Australia",
-  "Austria",
-  "Azerbaijan",
-  "Bahamas",
-  "Bahrain",
-  "Bangladesh",
-  "Barbados",
-  "Belarus",
-  "Belgium",
-  "Belize",
-  "Benin",
-  "Bhutan",
-  "Bolivia",
-  "Bosnia and Herzegovina",
-  "Botswana",
   "Brazil",
-  "Brunei",
-  "Bulgaria",
-  "Burkina Faso",
-  "Burundi",
-  "Cabo Verde",
-  "Cambodia",
-  "Cameroon",
   "Canada",
-  "Central African Republic",
-  "Chad",
-  "Chile",
   "China",
-  "Colombia",
-  "Comoros",
-  "Congo",
-  "Costa Rica",
-  "Croatia",
-  "Cuba",
-  "Cyprus",
-  "Czech Republic",
-  "Democratic Republic of the Congo",
-  "Denmark",
-  "Djibouti",
-  "Dominica",
-  "Dominican Republic",
-  "Ecuador",
-  "Egypt",
-  "El Salvador",
-  "Equatorial Guinea",
-  "Eritrea",
-  "Estonia",
-  "Eswatini",
-  "Ethiopia",
-  "Fiji",
-  "Finland",
   "France",
-  "Gabon",
-  "Gambia",
-  "Georgia",
   "Germany",
-  "Ghana",
-  "Greece",
-  "Grenada",
-  "Guatemala",
-  "Guinea",
-  "Guinea-Bissau",
-  "Guyana",
-  "Haiti",
-  "Honduras",
-  "Hungary",
-  "Iceland",
   "India",
-  "Indonesia",
-  "Iran",
-  "Iraq",
-  "Ireland",
-  "Israel",
   "Italy",
-  "Jamaica",
   "Japan",
-  "Jordan",
-  "Kazakhstan",
-  "Kenya",
-  "Kiribati",
-  "Kuwait",
-  "Kyrgyzstan",
-  "Laos",
-  "Latvia",
-  "Lebanon",
-  "Lesotho",
-  "Liberia",
-  "Libya",
-  "Liechtenstein",
-  "Lithuania",
-  "Luxembourg",
-  "Madagascar",
-  "Malawi",
-  "Malaysia",
-  "Maldives",
-  "Mali",
-  "Malta",
-  "Marshall Islands",
-  "Mauritania",
-  "Mauritius",
-  "Mexico",
-  "Micronesia",
-  "Moldova",
-  "Monaco",
-  "Mongolia",
-  "Montenegro",
-  "Morocco",
-  "Mozambique",
-  "Myanmar",
-  "Namibia",
-  "Nauru",
-  "Nepal",
   "Netherlands",
-  "New Zealand",
-  "Nicaragua",
-  "Niger",
-  "Nigeria",
-  "North Korea",
-  "North Macedonia",
-  "Norway",
-  "Oman",
-  "Pakistan",
-  "Palau",
-  "Palestine",
-  "Panama",
-  "Papua New Guinea",
-  "Paraguay",
-  "Peru",
-  "Philippines",
-  "Poland",
-  "Portugal",
-  "Qatar",
-  "Romania",
-  "Russia",
-  "Rwanda",
-  "Saint Kitts and Nevis",
-  "Saint Lucia",
-  "Saint Vincent and the Grenadines",
-  "Samoa",
-  "San Marino",
-  "Sao Tome and Principe",
-  "Saudi Arabia",
-  "Senegal",
-  "Serbia",
-  "Seychelles",
-  "Sierra Leone",
   "Singapore",
-  "Slovakia",
-  "Slovenia",
-  "Solomon Islands",
-  "Somalia",
   "South Africa",
-  "South Korea",
-  "South Sudan",
   "Spain",
-  "Sri Lanka",
-  "Sudan",
-  "Suriname",
-  "Sweden",
-  "Switzerland",
-  "Syria",
-  "Taiwan",
-  "Tajikistan",
-  "Tanzania",
-  "Thailand",
-  "Timor-Leste",
-  "Togo",
-  "Tonga",
-  "Trinidad and Tobago",
-  "Tunisia",
-  "Turkey",
-  "Turkmenistan",
-  "Tuvalu",
-  "Uganda",
-  "Ukraine",
   "United Arab Emirates",
-  "United States",
   "United Kingdom",
-  "Uruguay",
-  "Uzbekistan",
-  "Vanuatu",
-  "Vatican City",
-  "Venezuela",
-  "Vietnam",
-  "Yemen",
-  "Zambia",
-  "Zimbabwe",
+  "United States",
   "Other",
 ];
 
-const initialForm: RegistrationFormValues = {
+const initialForm: FormValues = {
   title: "",
-  fullName: "",
+  name: "",
   email: "",
   phone: "",
-  affiliation: "",
+  altEmail: "",
+  whatsApp: "",
+  organization: "",
   country: "",
-  designation: "",
-  notes: "",
+};
+
+const formatUsd = (value: number) => `$${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
+
+const getToday = () => {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+};
+
+const isGroupAvailable = (group: RegistrationGroup, today: Date) => {
+  const startsOn = group.startDate ?? new Date(0);
+  return today >= startsOn && today <= group.endDate;
+};
+
+const labelForPricingRow = (row: PricingRow) =>
+  row.id === "speaker"
+    ? "Speaker Presentation"
+    : row.id === "poster"
+      ? "Poster Presentation"
+      : row.id === "student"
+        ? "Student Delegate (Listener)"
+        : row.category;
+
+const buildRegistrationGroups = (pricingRows: PricingRow[], importantDates: ImportantDateItem[]): RegistrationGroup[] => {
+  const dateById = new Map(importantDates.map((date) => [date.id, date]));
+  const groupConfigs = [
+    { id: "pre-early", prefix: "pre", priceKey: "preEarly" as const, fallbackTitle: "Pre-Early Bird Registration" },
+    { id: "early", prefix: "early", priceKey: "earlyBird" as const, fallbackTitle: "Early Bird Registration" },
+    { id: "mid", prefix: "mid", priceKey: "midterm" as const, fallbackTitle: "Mid Term Registration" },
+    { id: "onspot", prefix: "onspot", priceKey: "onSpot" as const, fallbackTitle: "On-spot Registration" },
+  ];
+
+  return groupConfigs.map((config) => {
+    const date = dateById.get(config.id);
+
+    return {
+      title: date?.title || config.fallbackTitle,
+      date: date?.date || "",
+      startDate: toLocalDate(date?.startDate),
+      endDate: toLocalDate(date?.endDate) ?? new Date(8640000000000000),
+      categories: pricingRows.map((row) => ({
+        key: `${config.prefix}-${row.id}` as CategoryKey,
+        label: labelForPricingRow(row),
+        price: row[config.priceKey],
+      })),
+    };
+  });
 };
 
 const PricingSection = () => {
   const { toast } = useToast();
-  const [selectedPlanKey, setSelectedPlanKey] = useState<PlanKey | null>(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [detailsSubmitted, setDetailsSubmitted] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegistrationField, string>>>({});
-  const [affiliationType, setAffiliationType] = useState<"university" | "organization" | "">("");
-  const [registrationDetails, setRegistrationDetails] = useState<RegistrationFormValues>(initialForm);
+  const { importantDates, pricingRows } = useConferenceSettings();
+  const [formValues, setFormValues] = useState<FormValues>(initialForm);
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<CategoryKey>("pre-speaker");
+  const [participants, setParticipants] = useState(1);
+  const [couponCode, setCouponCode] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const today = useMemo(getToday, []);
+  const registrationGroups = useMemo(
+    () => buildRegistrationGroups(pricingRows, importantDates),
+    [importantDates, pricingRows],
+  );
+  const activeGroup = registrationGroups.find((group) => isGroupAvailable(group, today));
+  const availableCategories = activeGroup?.categories ?? [];
+  const allCategories = registrationGroups.flatMap((group) => group.categories);
+  const selectedCategory = allCategories.find((category) => category.key === selectedCategoryKey) ?? allCategories[0];
+  const registrationPrice = selectedCategory.price;
+  const totalRegistrationPrice = Math.max(registrationPrice * participants - discount, 0);
+  const serviceCharge = totalRegistrationPrice * SERVICE_CHARGE_RATE;
+  const totalPrice = totalRegistrationPrice + serviceCharge;
 
   const paymentLinks = useMemo(
     () => ({
-      student: {
-        stripe: import.meta.env.VITE_STRIPE_PAYMENT_LINK_STUDENT,
-        paypal: import.meta.env.VITE_PAYPAL_PAYMENT_LINK_STUDENT,
-      },
-      speaker: {
-        stripe: import.meta.env.VITE_STRIPE_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_ACADEMIC,
-        paypal: import.meta.env.VITE_PAYPAL_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_PAYPAL_PAYMENT_LINK_ACADEMIC,
-      },
-      poster: {
-        stripe: import.meta.env.VITE_STRIPE_PAYMENT_LINK_POSTER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
-        paypal: import.meta.env.VITE_PAYPAL_PAYMENT_LINK_POSTER || import.meta.env.VITE_PAYPAL_PAYMENT_LINK_BUSINESS,
-      },
-      delegate: {
-        stripe: import.meta.env.VITE_STRIPE_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
-        paypal: import.meta.env.VITE_PAYPAL_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_PAYPAL_PAYMENT_LINK_BUSINESS,
-      },
+      "pre-speaker": import.meta.env.VITE_STRIPE_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_ACADEMIC,
+      "pre-poster": import.meta.env.VITE_STRIPE_PAYMENT_LINK_POSTER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "pre-student": import.meta.env.VITE_STRIPE_PAYMENT_LINK_STUDENT,
+      "pre-delegate": import.meta.env.VITE_STRIPE_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "pre-virtual": import.meta.env.VITE_STRIPE_PAYMENT_LINK_VIRTUAL,
+      "early-speaker": import.meta.env.VITE_STRIPE_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_ACADEMIC,
+      "early-poster": import.meta.env.VITE_STRIPE_PAYMENT_LINK_POSTER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "early-student": import.meta.env.VITE_STRIPE_PAYMENT_LINK_STUDENT,
+      "early-delegate": import.meta.env.VITE_STRIPE_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "early-virtual": import.meta.env.VITE_STRIPE_PAYMENT_LINK_VIRTUAL,
+      "mid-speaker": import.meta.env.VITE_STRIPE_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_ACADEMIC,
+      "mid-poster": import.meta.env.VITE_STRIPE_PAYMENT_LINK_POSTER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "mid-student": import.meta.env.VITE_STRIPE_PAYMENT_LINK_STUDENT,
+      "mid-delegate": import.meta.env.VITE_STRIPE_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "onspot-speaker": import.meta.env.VITE_STRIPE_PAYMENT_LINK_SPEAKER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_ACADEMIC,
+      "onspot-poster": import.meta.env.VITE_STRIPE_PAYMENT_LINK_POSTER || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
+      "onspot-student": import.meta.env.VITE_STRIPE_PAYMENT_LINK_STUDENT,
+      "onspot-delegate": import.meta.env.VITE_STRIPE_PAYMENT_LINK_DELEGATE || import.meta.env.VITE_STRIPE_PAYMENT_LINK_BUSINESS,
     }),
     [],
   );
 
-  const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey) ?? null;
-  const affiliationPlaceholder =
-    affiliationType === "university"
-      ? "Enter university name"
-      : affiliationType === "organization"
-        ? "Enter organization name"
-        : "Institution or company";
+  useEffect(() => {
+    if (availableCategories.length && !availableCategories.some((category) => category.key === selectedCategoryKey)) {
+      setSelectedCategoryKey(availableCategories[0].key);
+    }
+  }, [availableCategories, selectedCategoryKey]);
 
-  const handleProceed = (planKey: PlanKey) => {
-    setSelectedPlanKey(planKey);
-    setDetailsSubmitted(false);
-    setFieldErrors({});
+  const updateFormValue = (field: keyof FormValues, value: string) => {
+    setFormValues((current) => ({ ...current, [field]: value }));
   };
 
-  const handleDialogChange = (open: boolean) => {
-    if (!open) {
-      setSelectedPlanKey(null);
-      setIsRedirecting(false);
-      setDetailsSubmitted(false);
-      setAffiliationType("");
-      setFieldErrors({});
-    }
-  };
-
-  const handleDetailsSubmit = () => {
-    if (!selectedPlan) {
-      return;
-    }
-
-    const nextErrors: Partial<Record<RegistrationField, string>> = {};
-
-    if (!registrationDetails.title.trim()) nextErrors.title = "Title is required";
-    if (!registrationDetails.fullName.trim()) nextErrors.fullName = "Full Name is required";
-    if (!registrationDetails.phone.trim()) nextErrors.phone = "Phone Number is required";
-    if (!registrationDetails.email.trim()) nextErrors.email = "Email Address is required";
-    if (!affiliationType) nextErrors.affiliationType = "Select University or Organization";
-    if (!registrationDetails.affiliation.trim()) nextErrors.affiliation = "Affiliation is required";
-    if (!registrationDetails.country.trim()) nextErrors.country = "Country is required";
-    if (!registrationDetails.designation.trim()) nextErrors.designation = "Designation is required";
-
-    if (registrationDetails.phone.trim() && !/^\d+$/.test(registrationDetails.phone.trim())) {
-      nextErrors.phone = "Phone Number must contain numbers only";
-    }
-
-    if (registrationDetails.email.trim() && !registrationDetails.email.includes("@")) {
-      nextErrors.email = "Email Address must include @";
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      toast({
-        title: "Complete attendee details",
-        description: "Please fix the highlighted fields before submitting.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setFieldErrors({});
-    setDetailsSubmitted(true);
+  const handleApplyCoupon = () => {
+    setDiscount(0);
     toast({
-      title: "Details submitted",
-      description: `${selectedPlan.name} selected successfully. You can continue to payment now.`,
+      title: "Coupon applied",
+      description: couponCode.trim() ? "No discount is configured for this coupon." : "Enter a coupon code to apply.",
     });
   };
 
-  const handlePaymentRedirect = async (provider: PaymentProvider) => {
-    if (!selectedPlan) {
-      return;
-    }
+  const handleReset = () => {
+    setFormValues(initialForm);
+    setSelectedCategoryKey(availableCategories[0]?.key ?? "pre-speaker");
+    setParticipants(1);
+    setCouponCode("");
+    setDiscount(0);
+  };
 
-    if (!detailsSubmitted) {
+  const handleProceed = async () => {
+    const requiredFields: Array<keyof FormValues> = ["title", "name", "email", "organization", "country"];
+    const hasMissingField = requiredFields.some((field) => !formValues[field].trim());
+
+    if (!availableCategories.some((category) => category.key === selectedCategoryKey)) {
       toast({
-        title: "Submit details first",
-        description: "Please submit the attendee details before choosing a payment gateway.",
+        title: "Registration period is not available",
+        description: "Please select an option from the currently open registration period.",
         variant: "destructive",
       });
       return;
     }
 
-    const link = paymentLinks[selectedPlan.key][provider];
-
-    if (!link) {
+    if (hasMissingField) {
       toast({
-        title: `${provider === "stripe" ? "Stripe" : "PayPal"} link missing`,
-        description: `Add the ${provider} checkout URL for ${selectedPlan.name} in your Vite environment variables.`,
+        title: "Complete required fields",
+        description: "Title, Name, Email, Organization, and Country are required.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsRedirecting(true);
+    if (!formValues.email.includes("@")) {
+      toast({
+        title: "Enter a valid email",
+        description: "Email must include @.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const payload = {
-      full_name: [registrationDetails.title.trim(), registrationDetails.fullName.trim()].filter(Boolean).join(" "),
-      email: registrationDetails.email.trim(),
-      phone: registrationDetails.phone.trim(),
-      affiliation: registrationDetails.affiliation.trim() || null,
-      country: registrationDetails.country.trim() || null,
-      designation: registrationDetails.designation.trim() || null,
-      notes: registrationDetails.notes.trim() || null,
-      plan_key: selectedPlan.key,
-      plan_name: selectedPlan.name,
-      payment_provider: provider,
-      amount_usd: selectedPlan.price,
-      currency: "USD",
-      payment_status: "pending",
-      status: "payment_pending",
-      redirect_url: link,
-      redirected_at: new Date().toISOString(),
-    };
+    setIsSubmitting(true);
+
+    const link = paymentLinks[selectedCategory.key];
+    const notes = [
+      formValues.altEmail ? `Alt Email: ${formValues.altEmail}` : "",
+      formValues.whatsApp ? `WhatsApp Number: ${formValues.whatsApp}` : "",
+      `Participants: ${participants}`,
+      `Discount: ${formatUsd(discount)}`,
+      `Service Charge: ${formatUsd(serviceCharge)}`,
+      `Total Price: ${formatUsd(totalPrice)}`,
+      couponCode.trim() ? `Coupon: ${couponCode.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const { data, error } = await supabase
       .from("registration_intents")
-      .insert(payload)
+      .insert({
+        full_name: [formValues.title, formValues.name].filter(Boolean).join(" "),
+        email: formValues.email.trim(),
+        phone: formValues.phone.trim() || formValues.whatsApp.trim() || "Not provided",
+        affiliation: formValues.organization.trim(),
+        country: formValues.country,
+        designation: selectedCategory.label,
+        notes,
+        plan_key: selectedCategory.key,
+        plan_name: selectedCategory.label,
+        payment_provider: "stripe",
+        amount_usd: totalPrice,
+        currency: "USD",
+        payment_status: "pending",
+        status: link ? "payment_pending" : "initiated",
+        redirect_url: link || null,
+        redirected_at: link ? new Date().toISOString() : null,
+      })
       .select("id")
       .single();
 
     if (error || !data) {
-      setIsRedirecting(false);
+      setIsSubmitting(false);
       toast({
         title: "Could not start registration",
         description: error?.message || "Unknown error",
@@ -447,94 +292,40 @@ const PricingSection = () => {
       PENDING_REGISTRATION_KEY,
       JSON.stringify({
         registrationId: data.id,
-        provider,
-        planKey: selectedPlan.key,
-        planName: selectedPlan.name,
-        email: registrationDetails.email.trim(),
+        provider: "stripe",
+        planKey: selectedCategory.key,
+        planName: selectedCategory.label,
+        email: formValues.email.trim(),
         createdAt: new Date().toISOString(),
       }),
     );
 
     toast({
-      title: "Registration Started!",
-      description: `Redirecting to ${provider === "stripe" ? "Stripe" : "PayPal"} for ${selectedPlan.name}.`,
+      title: "Registration started",
+      description: link ? "Redirecting to payment." : "Registration details were saved.",
     });
 
-    window.location.href = link;
+    if (link) {
+      window.location.href = link;
+      return;
+    }
+
+    setIsSubmitting(false);
   };
 
   return (
-    <section className="py-20 bg-muted/50">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <p className="section-kicker mb-2">Get Your</p>
-          <h2 className="text-3xl font-extrabold text-foreground md:text-4xl">Registration</h2>
-        </div>
+    <section className="bg-background py-12">
+      <div className="container mx-auto max-w-6xl px-4">
+        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-md border border-border bg-card p-6 shadow-sm">
+            <h2 className="mb-6 font-display text-3xl font-bold text-card-foreground">Registration</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {plans.map((plan, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className={`overflow-hidden rounded-md border bg-card card-hover ${
-                plan.featured ? "border-teal shadow-lg shadow-teal/10 md:scale-105" : "border-border"
-              }`}
-            >
-              <div className={`bg-gradient-to-r ${plan.color} p-6 text-center`}>
-                <h3 className="font-display text-lg font-bold text-white">{plan.name}</h3>
-              </div>
-              <div className="p-6">
-                <div className="text-center mb-6">
-                  <span className="text-muted-foreground font-body">$</span>
-                  <span className="text-5xl font-extrabold text-card-foreground">{plan.price}</span>
-                </div>
-                <ul className="space-y-3 mb-6">
-                  {features.map((feature, j) => (
-                    <li key={j} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check size={16} className="text-teal flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  onClick={() => handleProceed(plan.key)}
-                  className="w-full bg-teal text-white hover:bg-teal/85"
-                >
-                  Proceed
-                </Button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      <Dialog open={!!selectedPlan} onOpenChange={handleDialogChange}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-display text-2xl">Attendee Details</DialogTitle>
-            <DialogDescription>
-              {selectedPlan
-                ? `Fill in your details for ${selectedPlan.name}, submit them, and then continue to Stripe or PayPal.`
-                : "Complete your details and select a payment method."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Title *</label>
-                <Select
-                  value={registrationDetails.title}
-                  onValueChange={(value) => {
-                    setRegistrationDetails((current) => ({ ...current, title: value }));
-                    setFieldErrors((current) => ({ ...current, title: undefined }));
-                  }}
-                >
-                  <SelectTrigger className={fieldErrors.title ? "border-destructive focus:ring-destructive" : ""}>
-                    <SelectValue placeholder="Select Title" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Title*</label>
+                <Select value={formValues.title} onValueChange={(value) => updateFormValue("title", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
                     {titleOptions.map((title) => (
@@ -544,101 +335,36 @@ const PricingSection = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {fieldErrors.title ? <p className="text-xs text-destructive">{fieldErrors.title}</p> : null}
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Full Name *</label>
-                <Input
-                  className={fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}
-                  placeholder="Enter your full name"
-                  value={registrationDetails.fullName}
-                  onChange={(e) => {
-                    setRegistrationDetails((current) => ({ ...current, fullName: e.target.value }));
-                    setFieldErrors((current) => ({ ...current, fullName: undefined }));
-                  }}
-                />
-                {fieldErrors.fullName ? <p className="text-xs text-destructive">{fieldErrors.fullName}</p> : null}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Name*</label>
+                <Input placeholder="Name" value={formValues.name} onChange={(event) => updateFormValue("name", event.target.value)} />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Phone Number *</label>
-                <Input
-                  className={fieldErrors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
-                  placeholder="Enter your phone number"
-                  value={registrationDetails.phone}
-                  inputMode="numeric"
-                  onChange={(e) => {
-                    const numericValue = e.target.value.replace(/\D+/g, "");
-                    setRegistrationDetails((current) => ({ ...current, phone: numericValue }));
-                    setFieldErrors((current) => ({ ...current, phone: undefined }));
-                  }}
-                />
-                {fieldErrors.phone ? <p className="text-xs text-destructive">{fieldErrors.phone}</p> : null}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Email*</label>
+                <Input type="email" placeholder="Email" value={formValues.email} onChange={(event) => updateFormValue("email", event.target.value)} />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Email Address *</label>
-                <Input
-                  className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}
-                  type="email"
-                  placeholder="Enter your email address"
-                  value={registrationDetails.email}
-                  onChange={(e) => {
-                    setRegistrationDetails((current) => ({ ...current, email: e.target.value }));
-                    setFieldErrors((current) => ({ ...current, email: undefined }));
-                  }}
-                />
-                {fieldErrors.email ? <p className="text-xs text-destructive">{fieldErrors.email}</p> : null}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Phone</label>
+                <Input placeholder="Phone" value={formValues.phone} onChange={(event) => updateFormValue("phone", event.target.value)} />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Affiliation *</label>
-                <div className="flex flex-wrap gap-4 pb-1">
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Checkbox
-                      checked={affiliationType === "university"}
-                      onCheckedChange={(checked) =>
-                        {
-                          setAffiliationType(checked === true ? "university" : "");
-                          setFieldErrors((current) => ({ ...current, affiliationType: undefined }));
-                        }
-                      }
-                    />
-                    <span>University</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Checkbox
-                      checked={affiliationType === "organization"}
-                      onCheckedChange={(checked) =>
-                        {
-                          setAffiliationType(checked === true ? "organization" : "");
-                          setFieldErrors((current) => ({ ...current, affiliationType: undefined }));
-                        }
-                      }
-                    />
-                    <span>Organization</span>
-                  </label>
-                </div>
-                {fieldErrors.affiliationType ? <p className="text-xs text-destructive">{fieldErrors.affiliationType}</p> : null}
-                <Input
-                  className={fieldErrors.affiliation ? "border-destructive focus-visible:ring-destructive" : ""}
-                  placeholder={affiliationPlaceholder}
-                  value={registrationDetails.affiliation}
-                  onChange={(e) => {
-                    setRegistrationDetails((current) => ({ ...current, affiliation: e.target.value }));
-                    setFieldErrors((current) => ({ ...current, affiliation: undefined }));
-                  }}
-                />
-                {fieldErrors.affiliation ? <p className="text-xs text-destructive">{fieldErrors.affiliation}</p> : null}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Alt Email</label>
+                <Input type="email" placeholder="Email" value={formValues.altEmail} onChange={(event) => updateFormValue("altEmail", event.target.value)} />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Country *</label>
-                <Select
-                  value={registrationDetails.country}
-                  onValueChange={(value) => {
-                    setRegistrationDetails((current) => ({ ...current, country: value }));
-                    setFieldErrors((current) => ({ ...current, country: undefined }));
-                  }}
-                >
-                  <SelectTrigger className={fieldErrors.country ? "border-destructive focus:ring-destructive" : ""}>
-                    <SelectValue placeholder="Select country" />
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">WhatsApp Number</label>
+                <Input placeholder="WhatsApp Number" value={formValues.whatsApp} onChange={(event) => updateFormValue("whatsApp", event.target.value)} />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Organization*</label>
+                <Input placeholder="Organization" value={formValues.organization} onChange={(event) => updateFormValue("organization", event.target.value)} />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">Country*</label>
+                <Select value={formValues.country} onValueChange={(value) => updateFormValue("country", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
                     {countryOptions.map((country) => (
@@ -648,103 +374,171 @@ const PricingSection = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {fieldErrors.country ? <p className="text-xs text-destructive">{fieldErrors.country}</p> : null}
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Designation *</label>
-                <Select
-                  value={registrationDetails.designation}
-                  onValueChange={(value) => {
-                    setRegistrationDetails((current) => ({ ...current, designation: value }));
-                    setFieldErrors((current) => ({ ...current, designation: undefined }));
-                  }}
-                >
-                  <SelectTrigger className={fieldErrors.designation ? "border-destructive focus:ring-destructive" : ""}>
-                    <SelectValue placeholder="Select designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {designationOptions.map((designation) => (
-                      <SelectItem key={designation} value={designation}>
-                        {designation}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {fieldErrors.designation ? <p className="text-xs text-destructive">{fieldErrors.designation}</p> : null}
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Notes</label>
-                <Textarea
-                  placeholder="Any extra information, billing note, or participation details"
-                  value={registrationDetails.notes}
-                  onChange={(e) => setRegistrationDetails((current) => ({ ...current, notes: e.target.value }))}
-                />
               </div>
             </div>
 
-            {!detailsSubmitted ? (
-              <Button
-                type="button"
-                onClick={handleDetailsSubmit}
-                className="w-full gold-gradient text-hero-bg font-semibold hover:opacity-90 font-body"
-              >
-                Submit Details
-              </Button>
-            ) : null}
+            <div className="mt-8 space-y-6">
+              {registrationGroups.map((group) => (
+                <div
+                  key={group.title}
+                  className={`rounded-md border p-4 ${
+                    isGroupAvailable(group, today)
+                      ? "border-teal/50 bg-background"
+                      : "border-border bg-muted/30 opacity-60"
+                  }`}
+                >
+                  <div className="mb-4">
+                    <h3 className="font-display text-xl font-bold text-foreground">{group.title}</h3>
+                    <p className="text-sm font-semibold text-muted-foreground">{group.date}</p>
+                    {isGroupAvailable(group, today) && (
+                      <p className="mt-1 text-xs font-bold uppercase tracking-wide text-teal">Open now</p>
+                    )}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {group.categories.map((category) => {
+                      const isAvailable = isGroupAvailable(group, today);
 
-            {detailsSubmitted && selectedPlan ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
-                  <p className="text-sm font-semibold text-foreground">
-                    Registration successful for {selectedPlan.name}
+                      return (
+                      <label
+                        key={category.key}
+                        className={`flex items-center justify-between gap-4 py-3 text-sm ${
+                          isAvailable ? "cursor-pointer text-foreground" : "cursor-not-allowed text-muted-foreground"
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="registration-category"
+                            checked={selectedCategoryKey === category.key}
+                            onChange={() => setSelectedCategoryKey(category.key)}
+                            disabled={!isAvailable}
+                            className="h-4 w-4 accent-teal"
+                          />
+                          <span>{category.label}</span>
+                        </span>
+                        <span className="font-bold">{formatUsd(category.price)}</span>
+                      </label>
+                    )})}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-md border border-border bg-card p-6 shadow-sm">
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                No. of Participants ( $ under category )
+              </label>
+              <Input
+                min={1}
+                type="number"
+                value={participants}
+                onChange={(event) => setParticipants(Math.max(Number(event.target.value) || 1, 1))}
+              />
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <Input placeholder="Apply Coupon" value={couponCode} onChange={(event) => setCouponCode(event.target.value)} />
+                <Button type="button" variant="outline" onClick={handleApplyCoupon}>
+                  Apply Coupon
+                </Button>
+              </div>
+
+              <div className="mt-8">
+                <h3 className="mb-4 font-display text-2xl font-bold text-card-foreground">Registration Summary</h3>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p className="flex justify-between gap-4">
+                    <span>A. Registration Price:</span>
+                    <span className="font-semibold text-foreground">{formatUsd(registrationPrice)}</span>
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Choose your payment gateway to complete the payment.
+                  <p className="flex justify-between gap-4">
+                    <span>B. Participants:</span>
+                    <span className="font-semibold text-foreground">{participants}</span>
+                  </p>
+                  <p className="flex justify-between gap-4">
+                    <span>C. Discount:</span>
+                    <span className="font-semibold text-foreground">-{discount}</span>
+                  </p>
+                  <p className="flex justify-between gap-4">
+                    <span>D. Total Registration Price(A*B-C):</span>
+                    <span className="font-semibold text-foreground">{formatUsd(totalRegistrationPrice)}</span>
+                  </p>
+                  <p className="flex justify-between gap-4">
+                    <span>I. Service Charge:</span>
+                    <span className="font-semibold text-foreground">{formatUsd(serviceCharge)}</span>
+                  </p>
+                  <p className="flex justify-between gap-4 border-t border-border pt-3 text-base font-bold text-foreground">
+                    <span>Total Price(D+G+H+I):</span>
+                    <span>{formatUsd(totalPrice)}</span>
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => handlePaymentRedirect("stripe")}
-                  disabled={isRedirecting}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-gold hover:bg-gold/5 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#635bff] text-white">
-                      <CreditCard size={20} />
-                    </span>
-                    <span className="flex-1">
-                      <span className="block font-semibold text-card-foreground">Continue with Stripe</span>
-                      <span className="block text-sm text-muted-foreground">Card checkout and hosted payment page</span>
-                    </span>
-                    <ExternalLink size={16} className="text-muted-foreground" />
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handlePaymentRedirect("paypal")}
-                  disabled={isRedirecting}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-gold hover:bg-gold/5 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#003087] text-white font-bold text-sm">
-                      PP
-                    </span>
-                    <span className="flex-1">
-                      <span className="block font-semibold text-card-foreground">Continue with PayPal</span>
-                      <span className="block text-sm text-muted-foreground">PayPal checkout and wallet-based payment</span>
-                    </span>
-                    <ExternalLink size={16} className="text-muted-foreground" />
-                  </span>
-                </button>
               </div>
-            ) : null}
+
+              <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
+                By clicking "Proceed to Register", you agree to the privacy policy, terms & conditions and cancellation
+                policy.
+              </p>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Button type="button" variant="outline" onClick={handleReset} className="flex-1">
+                  reset
+                </Button>
+                <Button type="button" onClick={handleProceed} disabled={isSubmitting} className="flex-1 bg-teal text-white hover:bg-teal/85">
+                  proceed to register
+                </Button>
+              </div>
+            </div>
+
+            <InfoBlock title="Refund & Cancellation Policy">
+              <p>All cancellation requests must be submitted in writing via email to the Conference Secretariat.</p>
+              <p>Cancellation before 50 days of the conference: 50% refund</p>
+              <p>Cancellation before 40 days of the conference: 30% refund</p>
+              <p>Cancellation within 30 days of the conference: No refund</p>
+              <p>Registration may be transferred to another participant if the registered attendee is unable to participate.</p>
+              <p>Eligible refunds will be processed within 4 weeks after the completion of the conference.</p>
+            </InfoBlock>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <InfoBlock title="Important Note">
+            <p>
+              If the virtual conference is postponed due to unavoidable circumstances beyond the organizers' control,
+              including technical disruptions, force majeure events, government restrictions, cyber incidents, or other
+              emergency situations, refunds will not be applicable. In such cases, registrations will remain valid for
+              the rescheduled event or future conference edition.
+            </p>
+          </InfoBlock>
+
+          <InfoBlock title="Terms & Conditions">
+            <p>By registering for the virtual conference, participants agree to all conference terms and policies.</p>
+            <p>The organizers reserve the right to modify the conference program, speakers, schedule, or virtual platform if necessary.</p>
+            <p>Participants are responsible for ensuring stable internet connectivity and access to the required virtual meeting platform.</p>
+            <p>Conference access links and participation details will be shared with registered participants before the event.</p>
+            <p>Recording, redistribution, or unauthorized sharing of conference materials or access links is strictly prohibited.</p>
+            <p>In unavoidable circumstances, the conference may be postponed or rescheduled without prior notice.</p>
+            <p>If the conference is postponed, registrations will remain valid for the rescheduled event or future edition.</p>
+            <p>Participants are advised to regularly check the official conference website and registered email for updates and announcements.</p>
+          </InfoBlock>
+
+          <InfoBlock title="Why Participate?">
+            <p>Present your research to a global audience from anywhere</p>
+            <p>Network with international researchers and industry experts</p>
+            <p>Receive official presentation and participation certificates</p>
+            <p>Opportunity for publication and academic collaboration</p>
+            <p>Flexible and convenient virtual participation experience</p>
+          </InfoBlock>
+        </div>
+      </div>
     </section>
   );
 };
+
+const InfoBlock = ({ title, children }: { title: string; children: ReactNode }) => (
+  <div className="rounded-md border border-border bg-card p-6 shadow-sm">
+    <h3 className="mb-4 font-display text-xl font-bold text-card-foreground">{title}</h3>
+    <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">{children}</div>
+  </div>
+);
 
 export default PricingSection;

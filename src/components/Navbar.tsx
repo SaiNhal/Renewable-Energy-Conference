@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Zap } from "lucide-react";
 
 const navLinks = [
   { label: "Home", path: "/" },
@@ -17,25 +17,25 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-hero-bg/95 backdrop-blur-md border-b border-white/10">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-hero-bg/95 shadow-lg shadow-black/10 backdrop-blur-md">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 md:h-20">
+        <div className="flex h-16 items-center justify-between md:h-20">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center font-display font-bold text-hero-bg text-lg">
-              RE
+            <div className="gold-gradient flex h-11 w-11 items-center justify-center rounded-md text-hero-bg shadow-md shadow-gold/25">
+              <Zap size={24} fill="currentColor" />
             </div>
-            <span className="font-display text-hero-foreground text-lg hidden sm:block">
-              Renewable Energy <span className="text-gold">2027</span>
+            <span className="hidden font-display text-base font-black uppercase leading-tight text-hero-foreground sm:block">
+              Renewable Energy
+              <span className="block text-xs font-extrabold tracking-[0.18em] text-gold">Conference 2027</span>
             </span>
           </Link>
 
-          {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`rounded-md px-3 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors ${
                   location.pathname === link.path
                     ? "text-gold"
                     : "text-hero-foreground/80 hover:text-gold"
@@ -49,7 +49,8 @@ const Navbar = () => {
           {/* Mobile toggle */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden text-hero-foreground p-2"
+            className="rounded-md p-2 text-hero-foreground hover:bg-white/10 lg:hidden"
+            aria-label="Toggle navigation"
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -63,7 +64,7 @@ const Navbar = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setIsOpen(false)}
-                className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`block rounded-md px-3 py-2 text-sm font-bold uppercase tracking-wide transition-colors ${
                   location.pathname === link.path
                     ? "text-gold bg-white/5"
                     : "text-hero-foreground/80 hover:text-gold hover:bg-white/5"

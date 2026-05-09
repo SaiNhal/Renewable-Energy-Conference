@@ -14,6 +14,8 @@ const defaultEntries = [
   { data_key: "contact_email", value: "info@yourconference.com" },
   { data_key: "contact_phone", value: "+91 XXXXX XXXXX" },
   { data_key: "conference_venue", value: "Virtual (Online) Live Stream" },
+  { data_key: "important_dates", value: "" },
+  { data_key: "registration_pricing", value: "" },
 ];
 
 export const getDefaultSiteDataValue = (key: string) =>

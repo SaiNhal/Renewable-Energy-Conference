@@ -72,29 +72,36 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {speakers.map((speaker, i) => (
+        <div className="media-marquee overflow-hidden rounded-3xl border border-border/40 bg-background/5 p-4">
+          <div className="media-marquee-track flex gap-6">
+          {[...speakers, ...speakers].map((speaker, i) => (
             <motion.div
-              key={`${speaker.name}-${i}`}
+              key={`${speaker.id}-${i}`}
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.05 }}
-              className="text-center group"
+              className="group min-w-[250px] shrink-0 rounded-3xl border border-border bg-card p-6 text-center"
             >
-              <div className="w-24 h-24 md:w-28 md:h-28 mx-auto rounded-full bg-gradient-to-br from-gold/30 to-purple/30 border-2 border-gold/40 flex items-center justify-center mb-4 group-hover:border-gold transition-colors">
-                <span className="text-2xl md:text-3xl font-display font-bold text-gold">
-                  {speaker.name.split(" ").slice(-1)[0][0]}
-                </span>
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-gold/40 bg-gradient-to-br from-gold/30 to-teal/30 transition-colors group-hover:border-gold">
+                {speaker.image_url ? (
+                  <img src={speaker.image_url} alt={speaker.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="font-display text-3xl font-bold text-gold">
+                    {speaker.name.split(" ").slice(-1)[0]?.[0] || speaker.name[0]}
+                  </span>
+                )}
               </div>
-              <h3 className="font-display text-sm md:text-base font-semibold text-hero-foreground mb-1">
+              <h3 className="mb-1 font-display text-base font-semibold text-card-foreground">
                 {speaker.name}
               </h3>
-              <p className="text-section-dark-foreground/60 text-xs md:text-sm font-body">
+              <p className="font-body text-sm text-muted-foreground">
                 {speaker.organization || speaker.title || "Conference Speaker"}
               </p>
+              {speaker.topic ? <p className="mt-3 line-clamp-2 text-xs text-muted-foreground">{speaker.topic}</p> : null}
             </motion.div>
           ))}
+          </div>
         </div>
       </div>
     </section>

@@ -2,22 +2,31 @@ import { motion } from "framer-motion";
 import CountdownTimer from "./CountdownTimer";
 import { Link } from "react-router-dom";
 import { useSiteData } from "@/hooks/useSiteData";
-import { FileText, Send, Ticket } from "lucide-react";
+import { CalendarDays, MapPin, Send, Ticket } from "lucide-react";
+
+const heroStats = [
+  { value: "100+", label: "Expert Speakers" },
+  { value: "40+", label: "Technical Sessions" },
+  { value: "30+", label: "Countries" },
+  { value: "2", label: "Live Days" },
+];
 
 const HeroSection = () => {
   const { values } = useSiteData();
 
   return (
-    <section className="hero-gradient relative flex min-h-screen items-center overflow-hidden pb-16 pt-28">
-      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
+    <section className="hero-gradient relative flex min-h-screen items-center overflow-hidden pb-12 pt-28">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_20%,rgba(250,204,21,0.30),transparent_25%),linear-gradient(180deg,transparent,rgba(6,36,29,0.42))]" />
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent" />
 
       <div className="container relative z-10 mx-auto px-4">
-        <div className="flex flex-col items-center text-center">
+        <div className="grid items-center gap-10 lg:grid-cols-[1fr_390px]">
+          <div className="max-w-4xl text-left">
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-5 inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-gold-light backdrop-blur"
+            className="mb-5 inline-flex rounded-md border border-white/20 bg-white/10 px-4 py-2 text-sm font-extrabold uppercase tracking-[0.18em] text-gold-light backdrop-blur"
           >
             {values.hero_eyebrow}
           </motion.p>
@@ -26,27 +35,34 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="mb-5 max-w-4xl text-4xl font-extrabold leading-tight text-white md:text-6xl lg:text-7xl"
+            className="mb-5 max-w-4xl text-4xl font-black uppercase leading-tight text-white md:text-6xl lg:text-7xl"
           >
             {values.hero_title_primary}
             <br />
-            <span className="text-gold-light">{values.hero_title_secondary}</span>
+            <span className="text-gold">{values.hero_title_secondary}</span>
           </motion.h1>
 
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="mb-3 text-xl font-bold text-white md:text-2xl"
+            className="mb-5 flex flex-wrap gap-3"
           >
-            {values.hero_date_line}
-          </motion.p>
+            <span className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-3 text-sm font-extrabold text-hero-bg shadow-lg">
+              <CalendarDays size={18} className="text-teal" />
+              {values.hero_date_line}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-md bg-gold px-4 py-3 text-sm font-extrabold text-hero-bg shadow-lg">
+              <MapPin size={18} />
+              {values.conference_venue}
+            </span>
+          </motion.div>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mb-9 max-w-3xl text-base leading-relaxed text-white/82 md:text-lg"
+            className="mb-8 max-w-3xl text-base font-medium leading-relaxed text-white/85 md:text-lg"
           >
             {values.hero_theme}
           </motion.p>
@@ -55,18 +71,21 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mb-12 rounded-md border border-white/20 bg-white/12 p-6 shadow-2xl shadow-black/20 backdrop-blur-md"
+            className="mb-9 grid grid-cols-2 gap-3 md:grid-cols-4"
           >
-            <div className="rounded-md bg-white p-6">
-              <CountdownTimer />
-            </div>
+            {heroStats.map((item) => (
+              <div key={item.label} className="rounded-md border border-white/15 bg-white/12 p-4 backdrop-blur-md">
+                <p className="font-display text-3xl font-black text-gold">{item.value}</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-wide text-white/78">{item.label}</p>
+              </div>
+            ))}
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex flex-col gap-4 sm:flex-row justify-center"
+            className="flex flex-col gap-4 sm:flex-row"
           >
             <Link
               to="/abstract-submission"
@@ -82,13 +101,21 @@ const HeroSection = () => {
               <Ticket size={20} />
               <span>Register Now</span>
             </Link>
-            <a
-              href="#information"
-              className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md border border-white/40 bg-white/10 px-7 py-4 text-base font-extrabold text-white shadow-xl shadow-black/10 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white/20"
-            >
-              <FileText size={20} />
-              <span>Brochure</span>
-            </a>
+          </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.25 }}
+            className="rounded-md border border-white/20 bg-white/12 p-5 shadow-2xl shadow-black/25 backdrop-blur-md"
+          >
+            <div className="rounded-md bg-white p-5">
+              <p className="mb-4 text-center text-sm font-extrabold uppercase tracking-[0.18em] text-teal">
+                Conference Starts In
+              </p>
+              <CountdownTimer />
+            </div>
           </motion.div>
         </div>
       </div>

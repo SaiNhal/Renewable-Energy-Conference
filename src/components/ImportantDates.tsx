@@ -1,14 +1,10 @@
 import { motion } from "framer-motion";
 import { Calendar } from "lucide-react";
-
-const dates = [
-  { title: "Abstract Submission Deadline", date: "June 10, 2026", desc: "Submit original research and review papers" },
-  { title: "Acceptance Notification", date: "November 20, 2026", desc: "Peer-review decisions shared with authors" },
-  { title: "Early Registration Deadline", date: "June 15, 2026", desc: "Early registration closes" },
-  { title: "Conference Dates", date: "March 3-4, 2027", desc: "Virtual online live stream" },
-];
+import { useConferenceSettings } from "@/lib/conferenceSettings";
 
 const ImportantDates = () => {
+  const { importantDates } = useConferenceSettings();
+
   return (
     <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
@@ -17,8 +13,8 @@ const ImportantDates = () => {
           <h2 className="text-3xl font-extrabold text-foreground md:text-4xl">Dates</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {dates.map((item, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
+          {importantDates.map((item, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}

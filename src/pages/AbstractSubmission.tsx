@@ -314,6 +314,7 @@ const AbstractSubmission = () => {
         country: formData.country.trim(),
         presentation_type: formData.presentationType.trim(),
         abstract_title: formData.abstractTitle.trim(),
+        abstract_text: "Submitted as uploaded document.",
         file_paths: storedFiles.length > 0 ? storedFiles : null,
         status: "submitted",
       });

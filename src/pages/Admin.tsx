@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Database, FileText, Handshake, Info, LogOut, Ticket, Users } from "lucide-react";
+import { CalendarDays, Database, FileText, Handshake, Info, LogOut, Ticket, Users } from "lucide-react";
 import AdminSpeakers from "@/components/admin/AdminSpeakers";
 import AdminCoupons from "@/components/admin/AdminCoupons";
 import AdminMediaPartners from "@/components/admin/AdminMediaPartners";
 import AdminSiteData from "@/components/admin/AdminSiteData";
 import AdminInformation from "@/components/admin/AdminInformation";
 import AdminSubmissions from "@/components/admin/AdminSubmissions";
+import AdminConferenceSettings from "@/components/admin/AdminConferenceSettings";
 
 const Admin = () => {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -56,7 +57,7 @@ const Admin = () => {
       {/* Admin Content */}
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="speakers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 max-w-6xl h-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 max-w-6xl h-auto">
             <TabsTrigger value="speakers" className="flex items-center gap-2">
               <Users className="w-4 h-4" /> Speakers
             </TabsTrigger>
@@ -71,6 +72,9 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="submissions" className="flex items-center gap-2">
               <FileText className="w-4 h-4" /> Submissions
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4" /> Settings
             </TabsTrigger>
             <TabsTrigger value="coupons" className="flex items-center gap-2">
               <Ticket className="w-4 h-4" /> Coupons
@@ -91,6 +95,9 @@ const Admin = () => {
           </TabsContent>
           <TabsContent value="submissions">
             <AdminSubmissions />
+          </TabsContent>
+          <TabsContent value="settings">
+            <AdminConferenceSettings />
           </TabsContent>
           <TabsContent value="coupons">
             <AdminCoupons />

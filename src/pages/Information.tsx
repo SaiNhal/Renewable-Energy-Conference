@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import type { ReactNode } from "react";
+import { useConferenceSettings } from "@/lib/conferenceSettings";
 
 const speakerGuidelines = [
   "Present original, research-driven or industry-relevant insights",
@@ -66,12 +67,7 @@ const registrationIncludes = {
   ],
 };
 
-const pricingTable = [
-  { category: "Speaker", earlyBird: "$149", midterm: "$179", onSpot: "$199" },
-  { category: "Poster", earlyBird: "$99", midterm: "$129", onSpot: "$149" },
-  { category: "Student (Listener)", earlyBird: "$59", midterm: "$79", onSpot: "$99" },
-  { category: "Delegate", earlyBird: "$49", midterm: "$69", onSpot: "$89" },
-];
+const formatUsd = (value: number) => `$${value.toFixed(0)}`;
 
 const BulletList = ({ items, columns = true }: { items: string[]; columns?: boolean }) => (
   <ul className={columns ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "space-y-3"}>
@@ -109,6 +105,8 @@ const Section = ({
 );
 
 const Information = () => {
+  const { pricingRows } = useConferenceSettings();
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -264,12 +262,12 @@ const Information = () => {
               </tr>
             </thead>
             <tbody>
-              {pricingTable.map((row) => (
+              {pricingRows.map((row) => (
                 <tr key={row.category} className="border-b border-border">
                   <td className="py-3 px-2 text-muted-foreground font-body">{row.category}</td>
-                  <td className="py-3 px-2 text-muted-foreground font-body">{row.earlyBird}</td>
-                  <td className="py-3 px-2 text-muted-foreground font-body">{row.midterm}</td>
-                  <td className="py-3 px-2 text-muted-foreground font-body">{row.onSpot}</td>
+                  <td className="py-3 px-2 text-muted-foreground font-body">{formatUsd(row.earlyBird)}</td>
+                  <td className="py-3 px-2 text-muted-foreground font-body">{formatUsd(row.midterm)}</td>
+                  <td className="py-3 px-2 text-muted-foreground font-body">{formatUsd(row.onSpot)}</td>
                 </tr>
               ))}
             </tbody>

@@ -10,7 +10,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="font-display text-xl font-bold text-hero-foreground mb-4">
+            <h3 className="mb-4 font-display text-xl font-black uppercase text-hero-foreground">
               Renewable Energy <span className="text-gold">2027</span>
             </h3>
             <p className="text-section-dark-foreground/70 text-sm leading-relaxed font-body">
@@ -18,7 +18,7 @@ const Footer = () => {
             </p>
           </div>
           <div>
-            <h4 className="font-display text-lg font-semibold text-hero-foreground mb-4">Quick Links</h4>
+            <h4 className="mb-4 font-display text-lg font-black uppercase text-hero-foreground">Quick Links</h4>
             <div className="space-y-2">
               {[
                 { label: "About Conference", path: "/about" },
@@ -37,7 +37,7 @@ const Footer = () => {
             </div>
           </div>
           <div>
-            <h4 className="font-display text-lg font-semibold text-hero-foreground mb-4">Contact Info</h4>
+            <h4 className="mb-4 font-display text-lg font-black uppercase text-hero-foreground">Contact Info</h4>
             <div className="space-y-3 text-sm text-section-dark-foreground/70 font-body">
               <div className="flex items-center gap-2">
                 <Mail size={16} className="text-gold" />
