@@ -14,9 +14,112 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 // Global auth initialization state to prevent race conditions in React Strict Mode
-let globalAuthInitialized = false;
-let globalAuthInitializing = false;
-let globalAuthSubscription: any = null;
+class AuthManager {
+  private static instance: AuthManager;
+  private initialized = false;
+  private initializing = false;
+  private initPromise: Promise<void> | null = null;
+  private subscription: any = null;
+  private listeners = new Set<(user: User | null, session: Session | null) => void>();
+
+  static getInstance(): AuthManager {
+    if (!AuthManager.instance) {
+      AuthManager.instance = new AuthManager();
+    }
+    return AuthManager.instance;
+  }
+
+  async initialize(): Promise<{ user: User | null; session: Session | null }> {
+    if (this.initialized) {
+      // Return current session if already initialized
+      const { data: { session } } = await supabase.auth.getSession();
+      return { user: session?.user ?? null, session };
+    }
+
+    if (this.initializing && this.initPromise) {
+      // Wait for ongoing initialization
+      await this.initPromise;
+      const { data: { session } } = await supabase.auth.getSession();
+      return { user: session?.user ?? null, session };
+    }
+
+    this.initializing = true;
+    this.initPromise = this._initialize();
+
+    try {
+      const result = await this.initPromise;
+      this.initialized = true;
+      return result;
+    } finally {
+      this.initializing = false;
+      this.initPromise = null;
+    }
+  }
+
+  private async _initialize(): Promise<{ user: User | null; session: Session | null }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Set up global auth state change listener
+      if (!this.subscription) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            // Notify all listeners
+            this.listeners.forEach(listener => {
+              try {
+                listener(session?.user ?? null, session);
+              } catch (error) {
+                console.error("Auth listener error:", error);
+              }
+            });
+          }
+        );
+        this.subscription = subscription;
+      }
+
+      return { user: session?.user ?? null, session };
+    } catch (error) {
+      console.error("Auth initialization error:", error);
+      return { user: null, session: null };
+    }
+  }
+
+  addListener(listener: (user: User | null, session: Session | null) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  async checkAdmin(userId: string): Promise<boolean> {
+    try {
+      const { data } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      return !!data;
+    } catch (error) {
+      console.error("Admin check error:", error);
+      return false;
+    }
+  }
+
+  async signIn(email: string, password: string): Promise<{ data: any; error: AuthError | null }> {
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      return result;
+    } catch (error) {
+      console.error("Sign in error:", error);
+      return { data: null, error: error as AuthError };
+    }
+  }
+
+  async signOut(): Promise<void> {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Sign out error:", error);
+    }
+  }
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -24,111 +127,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const authManager = AuthManager.getInstance();
   const isMountedRef = useRef(true);
 
-  const checkAdmin = async (userId: string) => {
-    try {
-      const { data } = await supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "admin",
-      });
-      if (isMountedRef.current) {
-        setIsAdmin(!!data);
-      }
-    } catch (error) {
-      console.error("Admin check error:", error);
-      if (isMountedRef.current) {
-        setIsAdmin(false);
-      }
-    }
-  };
-
-  const handleAuthStateChange = async (_event: string, session: Session | null) => {
-    if (!isMountedRef.current) return;
-
-    setSession(session);
-    setUser(session?.user ?? null);
-
-    if (session?.user) {
-      await checkAdmin(session.user.id);
-    } else {
-      setIsAdmin(false);
-    }
-
-    if (isMountedRef.current) {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    // Prevent multiple auth initializations in React Strict Mode
-    if (globalAuthInitialized || globalAuthInitializing) {
-      // If already initialized, just set up local state
-      if (globalAuthInitialized) {
-        const getCurrentSession = async () => {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (isMountedRef.current) {
-              setSession(session);
-              setUser(session?.user ?? null);
-              if (session?.user) {
-                await checkAdmin(session.user.id);
-              } else {
-                setIsAdmin(false);
-              }
-              setLoading(false);
-            }
-          } catch (error) {
-            console.error("Session check error:", error);
-            if (isMountedRef.current) {
-              setLoading(false);
-            }
-          }
-        };
-        getCurrentSession();
-      }
-      return;
-    }
-
-    globalAuthInitializing = true;
-
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { user: initialUser, session: initialSession } = await authManager.initialize();
 
         if (!isMountedRef.current) return;
 
-        setSession(session);
-        setUser(session?.user ?? null);
+        setUser(initialUser);
+        setSession(initialSession);
 
-        if (session?.user) {
-          await checkAdmin(session.user.id);
+        if (initialUser) {
+          const adminStatus = await authManager.checkAdmin(initialUser.id);
+          if (isMountedRef.current) {
+            setIsAdmin(adminStatus);
+          }
         } else {
           setIsAdmin(false);
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
+        console.error("Auth provider initialization error:", error);
       } finally {
         if (isMountedRef.current) {
           setLoading(false);
         }
-        globalAuthInitialized = true;
-        globalAuthInitializing = false;
       }
     };
 
-    // Initialize auth once globally
     initializeAuth();
 
-    // Set up global auth state change listener
-    if (!globalAuthSubscription) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
-      globalAuthSubscription = subscription;
-    }
+    // Listen for auth state changes
+    const removeListener = authManager.addListener(async (newUser, newSession) => {
+      if (!isMountedRef.current) return;
+
+      setUser(newUser);
+      setSession(newSession);
+
+      if (newUser) {
+        const adminStatus = await authManager.checkAdmin(newUser.id);
+        if (isMountedRef.current) {
+          setIsAdmin(adminStatus);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    });
 
     return () => {
       isMountedRef.current = false;
-      // Don't unsubscribe global subscription here - let it persist
+      removeListener();
     };
   }, []);
 
@@ -137,18 +191,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await authManager.signIn(email, password);
 
       if (data?.session?.user && isMountedRef.current) {
         setUser(data.session.user);
         setSession(data.session);
-        await checkAdmin(data.session.user.id);
+        const adminStatus = await authManager.checkAdmin(data.session.user.id);
+        setIsAdmin(adminStatus);
       }
 
       return { error };
-    } catch (error) {
-      console.error("Sign in error:", error);
-      return { error: error as AuthError };
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
@@ -161,13 +213,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setLoading(true);
     try {
-      setSession(null);
       setUser(null);
+      setSession(null);
       setIsAdmin(false);
-
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Sign out error:", error);
+      await authManager.signOut();
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
