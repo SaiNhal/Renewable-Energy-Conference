@@ -13,26 +13,87 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+// Global auth initialization state to prevent race conditions in React Strict Mode
+let globalAuthInitialized = false;
+let globalAuthInitializing = false;
+let globalAuthSubscription: any = null;
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const checkAdmin = async (userId: string) => {
-    const { data } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-    setIsAdmin(!!data);
-  };
-
   const isMountedRef = useRef(true);
 
+  const checkAdmin = async (userId: string) => {
+    try {
+      const { data } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      if (isMountedRef.current) {
+        setIsAdmin(!!data);
+      }
+    } catch (error) {
+      console.error("Admin check error:", error);
+      if (isMountedRef.current) {
+        setIsAdmin(false);
+      }
+    }
+  };
+
+  const handleAuthStateChange = async (_event: string, session: Session | null) => {
+    if (!isMountedRef.current) return;
+
+    setSession(session);
+    setUser(session?.user ?? null);
+
+    if (session?.user) {
+      await checkAdmin(session.user.id);
+    } else {
+      setIsAdmin(false);
+    }
+
+    if (isMountedRef.current) {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    // Prevent multiple auth initializations in React Strict Mode
+    if (globalAuthInitialized || globalAuthInitializing) {
+      // If already initialized, just set up local state
+      if (globalAuthInitialized) {
+        const getCurrentSession = async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (isMountedRef.current) {
+              setSession(session);
+              setUser(session?.user ?? null);
+              if (session?.user) {
+                await checkAdmin(session.user.id);
+              } else {
+                setIsAdmin(false);
+              }
+              setLoading(false);
+            }
+          } catch (error) {
+            console.error("Session check error:", error);
+            if (isMountedRef.current) {
+              setLoading(false);
+            }
+          }
+        };
+        getCurrentSession();
+      }
+      return;
+    }
+
+    globalAuthInitializing = true;
+
     const initializeAuth = async () => {
       try {
-        setLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!isMountedRef.current) return;
@@ -51,66 +112,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (isMountedRef.current) {
           setLoading(false);
         }
+        globalAuthInitialized = true;
+        globalAuthInitializing = false;
       }
     };
 
-    // Initialize auth
+    // Initialize auth once globally
     initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!isMountedRef.current) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          await checkAdmin(session.user.id);
-        } else {
-          setIsAdmin(false);
-        }
-
-        if (isMountedRef.current) {
-          setLoading(false);
-        }
-      }
-    );
+    // Set up global auth state change listener
+    if (!globalAuthSubscription) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+      globalAuthSubscription = subscription;
+    }
 
     return () => {
       isMountedRef.current = false;
-      subscription.unsubscribe();
+      // Don't unsubscribe global subscription here - let it persist
     };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!isMountedRef.current) return { error: null };
 
-    if (data?.session?.user) {
-      await checkAdmin(data.session.user.id);
-      if (isMountedRef.current) {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (data?.session?.user && isMountedRef.current) {
         setUser(data.session.user);
         setSession(data.session);
+        await checkAdmin(data.session.user.id);
+      }
+
+      return { error };
+    } catch (error) {
+      console.error("Sign in error:", error);
+      return { error: error as AuthError };
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
       }
     }
-
-    if (isMountedRef.current) {
-      setLoading(false);
-    }
-
-    return { error };
   };
 
   const signOut = async () => {
+    if (!isMountedRef.current) return;
+
     setLoading(true);
-    setSession(null);
-    setUser(null);
-    setIsAdmin(false);
+    try {
+      setSession(null);
+      setUser(null);
+      setIsAdmin(false);
 
-    await supabase.auth.signOut();
-
-    setLoading(false);
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Sign out error:", error);
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    }
   };
 
   return (
