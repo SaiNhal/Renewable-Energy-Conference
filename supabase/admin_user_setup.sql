@@ -11,5 +11,5 @@ ON CONFLICT (user_id, role) DO NOTHING;
 -- INSERT INTO public.user_roles (user_id, role)
 -- SELECT id, 'admin'
 -- FROM auth.users
--- WHERE email = '[email protected]'
+-- WHERE email = 'bellalaganesh2004@gmail.com'
 -- ON CONFLICT (user_id, role) DO NOTHING;

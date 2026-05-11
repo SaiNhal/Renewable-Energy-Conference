@@ -40,7 +40,7 @@ These tables are used by the website:
 
 Open your Supabase project:
 
-`https://supabase.com/dashboard/project/zdxtnadjxjwtgqyzrkxj`
+`https://supabase.com/dashboard/project/bbhrsquxvwefswrrzmzc`
 
 Then go to:
 
@@ -48,10 +48,24 @@ Then go to:
 
 Run the migration files in this order:
 
-1. [20260327043155_5dbe4cd9](C:/Users/ganes/Downloads/reproject2changes/supabase/migrations/20260327043155_5dbe4cd9)
-2. [20260405090000_admin_content_expansion.sql](C:/Users/ganes/Downloads/reproject2changes/supabase/migrations/20260405090000_admin_content_expansion.sql)
-3. [20260405103000_registration_intents.sql](C:/Users/ganes/Downloads/reproject2changes/supabase/migrations/20260405103000_registration_intents.sql)
-4. [20260405113000_contact_and_abstract_submissions.sql](C:/Users/ganes/Downloads/reproject2changes/supabase/migrations/20260405113000_contact_and_abstract_submissions.sql)
+1. `supabase/migrations/20260327043155_5dbe4cd9`
+2. `supabase/migrations/20260405090000_admin_content_expansion.sql`
+3. `supabase/migrations/20260405103000_registration_intents.sql`
+4. `supabase/migrations/20260405113000_contact_and_abstract_submissions.sql`
+5. `supabase/migrations/20260406100000_expand_registration_payment_tracking.sql`
+6. `supabase/migrations/20260406104500_expand_abstract_submission_assets.sql`
+
+After confirming the project, copy the current anon/publishable key from:
+
+`Project Settings` -> `API` -> `Project API keys`
+
+Then update `.env`:
+
+```env
+VITE_SUPABASE_PROJECT_ID="bbhrsquxvwefswrrzmzc"
+VITE_SUPABASE_URL="https://bbhrsquxvwefswrrzmzc.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="PASTE_CURRENT_ANON_OR_PUBLISHABLE_KEY"
+```
 
 ## Create Admin Login
 
@@ -59,7 +73,7 @@ Run the migration files in this order:
 2. Create a user with your admin email and password.
 3. Copy that user's UUID.
 4. Open `SQL Editor`.
-5. Run [admin_user_setup.sql](C:/Users/ganes/Downloads/reproject2changes/supabase/admin_user_setup.sql) after replacing the placeholders.
+5. Run `supabase/admin_user_setup.sql` after replacing the placeholders, or uncomment the email-based block.
 
 After that, log in at:
 
