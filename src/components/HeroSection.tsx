@@ -5,8 +5,8 @@ import { useSiteData } from "@/hooks/useSiteData";
 import { CalendarDays, MapPin, Send, Ticket } from "lucide-react";
 
 const heroStats = [
-  { value: "100+", label: "Expert Speakers" },
-  { value: "40+", label: "Technical Sessions" },
+  { value: "300+", label: "Expert Speakers" },
+  { value: "30+", label: "Technical Sessions" },
   { value: "30+", label: "Countries" },
   { value: "2", label: "Live Days" },
 ];
@@ -74,9 +74,9 @@ const HeroSection = () => {
             className="mb-9 grid grid-cols-2 gap-3 md:grid-cols-4"
           >
             {heroStats.map((item) => (
-              <div key={item.label} className="rounded-md border border-white/15 bg-white/12 p-4 backdrop-blur-md">
-                <p className="font-display text-3xl font-black text-gold">{item.value}</p>
-                <p className="mt-1 text-xs font-bold uppercase tracking-wide text-white/78">{item.label}</p>
+              <div key={item.label} className="rounded-md border border-white/35 bg-white/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md">
+                <p className="font-display text-3xl font-black text-teal">{item.value}</p>
+                <p className="mt-1 text-xs font-extrabold uppercase tracking-wide text-card-foreground">{item.label}</p>
               </div>
             ))}
           </motion.div>

@@ -194,7 +194,7 @@ const AdminSpeakers = () => {
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
                 <div>
-                  <label className="text-xs text-muted-foreground">Display Order</label>
+                  <label className="text-xs text-muted-foreground">Number of cards (0 hides from site)</label>
                   <Input
                     type="number"
                     value={form.display_order}
@@ -233,7 +233,7 @@ const AdminSpeakers = () => {
                   <TableHead>Speaker</TableHead>
                   <TableHead className="hidden md:table-cell">Topic</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Order</TableHead>
+                  <TableHead>Cards</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>

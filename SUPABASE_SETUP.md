@@ -91,9 +91,16 @@ VITE_STRIPE_PAYMENT_LINK_BUSINESS=""
 VITE_PAYPAL_PAYMENT_LINK_STUDENT=""
 VITE_PAYPAL_PAYMENT_LINK_ACADEMIC=""
 VITE_PAYPAL_PAYMENT_LINK_BUSINESS=""
+
+# Optional temporary Razorpay test override.
+VITE_PAYMENT_TEST_PROVIDER=""
+VITE_RAZORPAY_TEST_PAYMENT_LINK=""
 ```
 
 These should be hosted checkout links from Stripe and PayPal.
+
+Set `VITE_PAYMENT_TEST_PROVIDER="razorpay"` and add a Razorpay test payment link to temporarily send all
+registration payments to Razorpay without changing the Stripe payment link settings.
 
 ## Where You Will See Data
 

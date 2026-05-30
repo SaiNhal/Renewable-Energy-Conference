@@ -23,19 +23,12 @@ export const importantDatesKey = "important_dates";
 export const registrationPricingKey = "registration_pricing";
 
 export const defaultImportantDates: ImportantDateItem[] = [
-  {
-    id: "pre-early",
-    title: "Pre-Early Bird Registration",
-    date: "Till July 25, 2026",
-    desc: "Current registration period",
-    endDate: "2026-07-25",
-  },
+
   {
     id: "early",
     title: "Early Bird Registration",
-    date: "July 26 - August 20, 2026",
+    date: "Till August 20, 2026",
     desc: "Opens after pre-early bird closes",
-    startDate: "2026-07-26",
     endDate: "2026-08-20",
   },
   {

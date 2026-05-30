@@ -12,78 +12,54 @@ type RegistrationPaymentStatusProps = {
   mode: "success" | "cancel";
 };
 
-type SyncState = "loading" | "success" | "error";
-
 const RegistrationPaymentStatus = ({ mode }: RegistrationPaymentStatusProps) => {
   const [searchParams] = useSearchParams();
-  const [syncState, setSyncState] = useState<SyncState>("loading");
-  const [message, setMessage] = useState("Updating your registration record...");
+  const [paypalMessage, setPaypalMessage] = useState("");
 
   useEffect(() => {
-    const syncRegistration = async () => {
-      const storedValue = localStorage.getItem(PENDING_REGISTRATION_KEY);
-      let stored: { registrationId?: string } | null = null;
+    const finalizePayment = async () => {
+      const provider = searchParams.get("provider");
+      const registrationId = searchParams.get("registration_id");
+      const paypalOrderId = searchParams.get("token");
 
-      if (storedValue) {
-        try {
-          stored = JSON.parse(storedValue);
-        } catch {
-          localStorage.removeItem(PENDING_REGISTRATION_KEY);
-        }
+      if (mode === "success" && registrationId) {
+        localStorage.removeItem(PENDING_REGISTRATION_KEY);
       }
 
-      const registrationId = searchParams.get("registration_id") || stored?.registrationId;
-
-      if (!registrationId) {
-        setSyncState("error");
-        setMessage("We could not find the registration ID to update your payment record.");
+      if (mode !== "success" || provider !== "paypal" || !registrationId || !paypalOrderId) {
         return;
       }
 
-      const paymentReference =
-        searchParams.get("payment_reference") ||
-        searchParams.get("payment_intent") ||
-        searchParams.get("token") ||
-        searchParams.get("order_id");
+      setPaypalMessage("Capturing your PayPal payment...");
 
-      const paymentSessionId =
-        searchParams.get("session_id") ||
-        searchParams.get("checkout_session_id") ||
-        searchParams.get("cs_id");
-
-      const paymentOrderId =
-        searchParams.get("order_id") ||
-        searchParams.get("paypal_order_id") ||
-        searchParams.get("PayerID");
-
-      const gatewayResponse = Object.fromEntries(searchParams.entries());
-
-      const { error } = await supabase.rpc("update_registration_payment", {
-        p_registration_id: registrationId,
-        p_payment_status: mode === "success" ? "paid" : "cancelled",
-        p_payment_reference: paymentReference,
-        p_payment_session_id: paymentSessionId,
-        p_payment_order_id: paymentOrderId,
-        p_gateway_response: gatewayResponse,
+      const { data, error } = await supabase.functions.invoke<{ status?: string; error?: string }>("capture-paypal-order", {
+        body: {
+          registrationId,
+          orderId: paypalOrderId,
+        },
       });
 
-      if (error) {
-        setSyncState("error");
-        setMessage(error.message);
+      if (error || data?.status !== "paid") {
+        setPaypalMessage(data?.error || error?.message || "PayPal payment could not be captured. Please contact support.");
         return;
       }
 
-      localStorage.removeItem(PENDING_REGISTRATION_KEY);
-      setSyncState("success");
-      setMessage(
-        mode === "success"
-          ? "Your registration and payment details were saved successfully."
-          : "Your registration was saved and marked as payment cancelled.",
-      );
+      setPaypalMessage("PayPal payment captured successfully. Your registration is marked as paid.");
     };
 
-    syncRegistration();
+    void finalizePayment();
   }, [mode, searchParams]);
+
+  useEffect(() => {
+    if (mode === "cancel" && searchParams.get("registration_id")) {
+      localStorage.removeItem(PENDING_REGISTRATION_KEY);
+    }
+  }, [mode, searchParams]);
+
+  const message =
+    mode === "success"
+      ? "Thank you. Your payment was completed and is being verified by the payment gateway."
+      : "The payment was cancelled. Your attendee details were saved, but the registration is not marked as paid.";
 
   return (
     <div className="min-h-screen bg-background">
@@ -98,10 +74,11 @@ const RegistrationPaymentStatus = ({ mode }: RegistrationPaymentStatusProps) => 
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">{message}</p>
+              {paypalMessage ? <p className="text-sm font-medium text-teal">{paypalMessage}</p> : null}
               {mode === "success" ? (
                 <p className="text-sm text-muted-foreground">
-                  You can now return to the site. The admin dashboard will show the attendee form data together with
-                  the latest payment status.
+                  Stripe payments are confirmed by webhook. PayPal payments are captured when this page loads after
+                  approval.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -117,12 +94,6 @@ const RegistrationPaymentStatus = ({ mode }: RegistrationPaymentStatusProps) => 
                   <Link to="/">Go Home</Link>
                 </Button>
               </div>
-              {syncState === "error" ? (
-                <p className="text-sm text-destructive">
-                  If the payment gateway redirected here correctly, the database update may still need a webhook or a
-                  valid `registration_id` in the return URL.
-                </p>
-              ) : null}
             </CardContent>
           </Card>
         </div>

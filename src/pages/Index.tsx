@@ -1,9 +1,9 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
-import UpdatesBanner from "@/components/UpdatesBanner";
 import HomeHighlights from "@/components/HomeHighlights";
 import AboutSection from "@/components/AboutSection";
 import ImportantDates from "@/components/ImportantDates";
+import ScheduleSection from "@/components/ScheduleSection";
 import SpeakersSection from "@/components/SpeakersSection";
 import MediaPartnersSection from "@/components/MediaPartnersSection";
 import Footer from "@/components/Footer";
@@ -13,10 +13,10 @@ const Index = () => {
     <div className="min-h-screen">
       <Navbar />
       <HeroSection />
-      <UpdatesBanner />
       <HomeHighlights />
       <AboutSection />
       <ImportantDates />
+      <ScheduleSection />
       <SpeakersSection showEmptyState={false} />
       <MediaPartnersSection />
       <Footer />

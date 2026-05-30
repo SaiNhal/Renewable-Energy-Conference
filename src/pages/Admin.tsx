@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Database, FileText, Handshake, Info, LogOut, Ticket, Users } from "lucide-react";
+import { CalendarDays, Database, FileText, Handshake, Info, LayoutPanelTop, LogOut, Ticket, Users } from "lucide-react";
 import AdminSpeakers from "@/components/admin/AdminSpeakers";
 import AdminCoupons from "@/components/admin/AdminCoupons";
 import AdminMediaPartners from "@/components/admin/AdminMediaPartners";
 import AdminSiteData from "@/components/admin/AdminSiteData";
+import AdminContent from "@/components/admin/AdminContent";
 import AdminInformation from "@/components/admin/AdminInformation";
 import AdminSubmissions from "@/components/admin/AdminSubmissions";
 import AdminConferenceSettings from "@/components/admin/AdminConferenceSettings";
@@ -56,8 +57,11 @@ const Admin = () => {
 
       {/* Admin Content */}
       <div className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="speakers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 max-w-6xl h-auto">
+        <Tabs defaultValue="content" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 xl:grid-cols-8 max-w-7xl h-auto">
+            <TabsTrigger value="content" className="flex items-center gap-2">
+              <LayoutPanelTop className="w-4 h-4" /> Content
+            </TabsTrigger>
             <TabsTrigger value="speakers" className="flex items-center gap-2">
               <Users className="w-4 h-4" /> Speakers
             </TabsTrigger>
@@ -81,6 +85,9 @@ const Admin = () => {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="content">
+            <AdminContent />
+          </TabsContent>
           <TabsContent value="speakers">
             <AdminSpeakers />
           </TabsContent>

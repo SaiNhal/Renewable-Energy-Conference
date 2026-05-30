@@ -1,19 +1,26 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SessionsSection, { tracks } from "@/components/SessionsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { splitLines, useWebsiteContent } from "@/hooks/useWebsiteContent";
 import { supabase } from "@/integrations/supabase/client";
 import { Link as LinkIcon, Upload, FileText, FolderOpen, Download, X } from "lucide-react";
+import CaptchaVerification from "@/components/CaptchaVerification";
 
 type StoredFileInfo = {
   name: string;
   path: string;
   type: string;
 };
+
+const MAX_ABSTRACT_FILE_SIZE_MB = 5;
+const MAX_ABSTRACT_FILE_SIZE_BYTES = MAX_ABSTRACT_FILE_SIZE_MB * 1024 * 1024;
 
 const titles = ["Dr.", "Prof.", "Mr.", "Mrs.", "Miss."];
 
@@ -217,8 +224,27 @@ const countries = [
 ];
 
 const AbstractSubmission = () => {
+  const location = useLocation();
   const { toast } = useToast();
+  const { getSection } = useWebsiteContent();
+  const intro = getSection("abstract_intro", {
+    title: "Abstract Submission",
+    content: "Submit your research abstract and supporting materials for Renewable Energy - 2027",
+  });
+  const guidelines = getSection("abstract_guidelines", {
+    title: "Abstract Submission Guidelines",
+    content:
+      "Please download the abstract template and follow the format carefully to avoid revisions.\nAbstract submissions must be prepared in English.\nThe abstract should clearly include the background, purpose, methodology, results, and conclusion of the research.\nPlease include complete author details, affiliation, presentation category (Oral/Poster), and a brief biography of the presenting author.",
+  });
+  const sessions = getSection("scientific_sessions", {
+    title: "Scientific Sessions",
+    content: tracks.map((track) => `${track.title} | ${track.description}`).join("\n"),
+  });
+  const availableTracks = splitLines(sessions.content).map((line) => ({
+    title: line.split("|")[0].trim(),
+  }));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeSection, setActiveSection] = useState("");
   const [formData, setFormData] = useState({
     titlePrefix: "",
     name: "",
@@ -227,16 +253,44 @@ const AbstractSubmission = () => {
     organization: "",
     country: "",
     presentationType: "",
-    abstractTitle: "",
+    session: "",
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+
+  useEffect(() => {
+    if (location.hash === "#scientific-sessions") {
+      setActiveSection("scientific-sessions");
+      return;
+    }
+
+    if (location.hash === "#submit-abstract") {
+      setActiveSection("submit-abstract");
+    }
+  }, [location.hash]);
 
   const appendFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const nextFile = files[0];
+
+    if (nextFile.size >= MAX_ABSTRACT_FILE_SIZE_BYTES) {
+      toast({
+        title: "File is too large",
+        description: `Please upload a file less than ${MAX_ABSTRACT_FILE_SIZE_MB} MB.`,
+        variant: "destructive",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
     setSelectedFiles([nextFile]);
   };
 
@@ -271,7 +325,7 @@ const AbstractSubmission = () => {
       formData.organization,
       formData.country,
       formData.presentationType,
-      formData.abstractTitle,
+      formData.session,
     ];
 
     if (requiredValues.some((value) => value.trim() === "")) {
@@ -287,6 +341,24 @@ const AbstractSubmission = () => {
       toast({
         title: "Document required",
         description: "Please upload your abstract document before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedFiles.some((file) => file.size >= MAX_ABSTRACT_FILE_SIZE_BYTES)) {
+      toast({
+        title: "File is too large",
+        description: `Please upload a file less than ${MAX_ABSTRACT_FILE_SIZE_MB} MB.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isCaptchaVerified) {
+      toast({
+        title: "Captcha required",
+        description: "Please complete captcha verification before submitting your abstract.",
         variant: "destructive",
       });
       return;
@@ -313,7 +385,7 @@ const AbstractSubmission = () => {
         affiliation: formData.organization.trim(),
         country: formData.country.trim(),
         presentation_type: formData.presentationType.trim(),
-        abstract_title: formData.abstractTitle.trim(),
+        abstract_title: formData.session.trim(),
         abstract_text: "Submitted as uploaded document.",
         file_paths: storedFiles.length > 0 ? storedFiles : null,
         status: "submitted",
@@ -332,9 +404,11 @@ const AbstractSubmission = () => {
         organization: "",
         country: "",
         presentationType: "",
-        abstractTitle: "",
+        session: "",
       });
       setSelectedFiles([]);
+      setIsCaptchaVerified(false);
+      setCaptchaResetKey((current) => current + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       toast({ title: "Submission failed", description: message, variant: "destructive" });
@@ -348,23 +422,49 @@ const AbstractSubmission = () => {
       <Navbar />
       <div className="pt-20 hero-gradient py-16">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-gold font-display mb-4">Abstract Submission</h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-gold font-display mb-4">{intro.title}</h1>
           <p className="text-hero-foreground/80 font-body max-w-2xl mx-auto">
-            Submit your research abstract and supporting materials for Renewable Energy - 2027
+            {intro.content}
           </p>
         </div>
       </div>
-      <div className="py-16 bg-background">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="bg-card border border-border rounded-xl p-8">
+      <div className="bg-background py-12">
+        <div className="container mx-auto max-w-5xl px-4">
+          {!activeSection ? (
+            <section>
+              <div className="mb-8 text-center">
+                <h2 className="font-display text-3xl font-bold text-foreground md:text-4xl">Select Abstract Section</h2>
+                <p className="mt-3 text-muted-foreground">Choose what you want to open.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  { id: "submit-abstract", title: "Abstract Submission" },
+                  { id: "scientific-sessions", title: sessions.title },
+                ].map((item) => (
+                  <a
+                    key={item.id}
+                    href={`/abstract-submission#${item.id}`}
+                    onClick={() => setActiveSection(item.id)}
+                    className="rounded-md border border-border bg-card p-6 font-display text-xl font-bold text-card-foreground shadow-sm transition-colors hover:border-teal/50 hover:bg-teal/10 hover:text-teal"
+                  >
+                    {item.title}
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : activeSection === "scientific-sessions" ? (
+            <div id="scientific-sessions" className="rounded-md border border-border bg-card shadow-sm">
+              <SessionsSection />
+            </div>
+          ) : (
+            <div id="submit-abstract" className="bg-card border border-border rounded-xl p-8">
             <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h2 className="font-display text-2xl font-bold text-card-foreground mb-2">Abstract Submission Guidelines</h2>
+                <h2 className="font-display text-2xl font-bold text-card-foreground mb-2">{guidelines.title}</h2>
                 <ul className="text-muted-foreground text-sm font-body space-y-2">
-                  <li>- Please download the abstract template and follow the format carefully to avoid revisions.</li>
-                  <li>- Abstract submissions must be prepared in English.</li>
-                  <li>- The abstract should clearly include the background, purpose, methodology, results, and conclusion of the research.</li>
-                  <li>- Please include complete author details, affiliation, presentation category (Oral/Poster), and a brief biography of the presenting author.</li>
+                  {splitLines(guidelines.content).map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
                 </ul>
               </div>
               <Button asChild variant="outline" className="shrink-0">
@@ -444,8 +544,19 @@ const AbstractSubmission = () => {
               </div>
 
               <div>
-                <label className="text-sm font-body font-medium text-card-foreground mb-1 block">Abstract Title *</label>
-                <Input value={formData.abstractTitle} onChange={(e) => setFormData({ ...formData, abstractTitle: e.target.value })} required />
+                <label className="text-sm font-body font-medium text-card-foreground mb-1 block">Session *</label>
+                <Select value={formData.session} onValueChange={(value) => setFormData({ ...formData, session: value })} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTracks.map((track, index) => (
+                      <SelectItem key={track.title} value={track.title}>
+                        {`Track ${index + 1}: ${track.title}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div
@@ -465,7 +576,7 @@ const AbstractSubmission = () => {
               >
                 <div className="text-center mb-8">
                   <h3 className="text-3xl font-semibold text-white">Drop your files</h3>
-                  <p className="mt-2 text-base text-white/65">PDF, Images, docs and more</p>
+                  <p className="mt-2 text-base text-white/65">PDF, Images, docs and more are supported. Each file should be less than 5MB.</p>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-4">
@@ -514,11 +625,18 @@ const AbstractSubmission = () => {
                 </div>
               )}
 
-              <Button type="submit" disabled={isSubmitting} className="w-full gold-gradient text-hero-bg font-semibold hover:opacity-90 font-body py-6">
+              <CaptchaVerification
+                verified={isCaptchaVerified}
+                onVerifiedChange={setIsCaptchaVerified}
+                resetKey={captchaResetKey}
+              />
+
+              <Button type="submit" disabled={isSubmitting || !isCaptchaVerified} className="w-full gold-gradient text-hero-bg font-semibold hover:opacity-90 font-body py-6">
                 {isSubmitting ? "Submitting..." : "Submit Abstract"}
               </Button>
             </form>
           </div>
+          )}
         </div>
       </div>
       <Footer />

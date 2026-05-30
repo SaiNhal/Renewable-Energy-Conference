@@ -1,44 +1,61 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Globe2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 type MediaPartner = Tables<"media_partners">;
 
-const fallbackPartners = [
-  { name: "Global Materials Review", tier: "Media Partner", website_url: "#", description: "Conference and research media coverage." },
-  { name: "NanoTech Journal", tier: "Publishing Partner", website_url: "#", description: "Special issue and post-event dissemination." },
-  { name: "Applied Engineering World", tier: "Outreach Partner", website_url: "#", description: "Academic and industry audience amplification." },
-];
-
 const MediaPartnersSection = () => {
   const [partners, setPartners] = useState<MediaPartner[]>([]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchPartners = useCallback(async () => {
+    const { data } = await supabase
+      .from("media_partners")
+      .select("*")
+      .eq("is_visible", true)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
-    const fetchPartners = async () => {
-      const { data } = await supabase
-        .from("media_partners")
-        .select("*")
-        .eq("is_visible", true)
-        .order("display_order", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (isMounted && data) {
-        setPartners(data);
-      }
-    };
-
-    fetchPartners();
-
-    return () => {
-      isMounted = false;
-    };
+    if (data) {
+      setPartners(data);
+    }
   }, []);
 
-  const items = partners.length > 0 ? partners : fallbackPartners;
-  const marqueeItems = [...items, ...items];
+  useEffect(() => {
+    fetchPartners();
+
+    const channel = supabase
+      .channel("public-media-partners")
+      .on("postgres_changes", { event: "*", schema: "public", table: "media_partners" }, fetchPartners)
+      .subscribe();
+
+    window.addEventListener("focus", fetchPartners);
+
+    return () => {
+      window.removeEventListener("focus", fetchPartners);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPartners]);
+
+  if (partners.length === 0) {
+    return (
+      <section className="py-20 bg-slate-950">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <div className="text-center mb-8">
+            <p className="text-gold text-sm uppercase tracking-wider font-body mb-2">Visibility</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white font-display">Media Partners Coming Soon</h2>
+          </div>
+          <div className="rounded-[2rem] border border-gold/30 bg-gradient-to-br from-slate-900/95 via-slate-950 to-slate-900/95 p-12 text-center shadow-[0_30px_90px_rgba(234,179,8,0.12)]">
+            <p className="text-slate-200 leading-8">
+              Media partners will appear here once they are finalized.
+                         </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const marqueeItems = [...partners, ...partners];
 
   return (
     <section className="py-20 bg-muted/40">

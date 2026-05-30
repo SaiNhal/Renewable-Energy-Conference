@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -15,28 +15,34 @@ interface SpeakersSectionProps {
 const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
 
+  const fetchSpeakers = useCallback(async () => {
+    const { data } = await supabase
+      .from("speakers")
+      .select("*")
+      .eq("is_visible", true)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (data) {
+      setSpeakers(data.filter((speaker) => !isCommitteeMember(speaker)));
+    }
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchSpeakers = async () => {
-      const { data } = await supabase
-        .from("speakers")
-        .select("*")
-        .eq("is_visible", true)
-        .order("display_order", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (isMounted && data) {
-        setSpeakers(data.filter((speaker) => !isCommitteeMember(speaker)));
-      }
-    };
-
     fetchSpeakers();
 
+    const channel = supabase
+      .channel("public-speakers")
+      .on("postgres_changes", { event: "*", schema: "public", table: "speakers" }, fetchSpeakers)
+      .subscribe();
+
+    window.addEventListener("focus", fetchSpeakers);
+
     return () => {
-      isMounted = false;
+      window.removeEventListener("focus", fetchSpeakers);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchSpeakers]);
 
   if (speakers.length === 0) {
     if (!showEmptyState) {
@@ -44,7 +50,7 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
     }
 
     return (
-      <section className="py-20 bg-slate-950">
+      <section className="py-16 bg-slate-950">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="text-center mb-8">
             <p className="text-gold text-sm uppercase tracking-wider font-body mb-2">Confirmed</p>
@@ -52,7 +58,7 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
               Speakers Coming Soon
             </h2>
           </div>
-          <div className="rounded-[2rem] border border-gold/30 bg-gradient-to-br from-slate-900/95 via-slate-950 to-slate-900/95 p-12 text-center shadow-[0_30px_90px_rgba(234,179,8,0.12)]">
+          <div className="rounded-md border border-gold/30 bg-gradient-to-br from-slate-900/95 via-slate-950 to-slate-900/95 p-8 text-center shadow-[0_30px_90px_rgba(234,179,8,0.12)]">
             <p className="text-slate-200 leading-8">
               Speakers will appear here once they are finalized. Stay tuned for updates as we assemble a team of experts to organize an unforgettable conference experience.
             </p>
@@ -63,7 +69,7 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
   }
 
   return (
-    <section className="py-20 section-dark">
+    <section className="py-16 section-dark">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <p className="text-gold text-sm uppercase tracking-wider font-body mb-2">Confirmed</p>
@@ -72,7 +78,7 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
           </h2>
         </div>
 
-        <div className="media-marquee overflow-hidden rounded-3xl border border-border/40 bg-background/5 p-4">
+        <div className="media-marquee overflow-hidden rounded-md border border-border/40 bg-background/5 p-3">
           <div className="media-marquee-track flex gap-6">
           {[...speakers, ...speakers].map((speaker, i) => (
             <motion.div
@@ -81,7 +87,7 @@ const SpeakersSection = ({ showEmptyState = true }: SpeakersSectionProps) => {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.05 }}
-              className="group min-w-[250px] shrink-0 rounded-3xl border border-border bg-card p-6 text-center"
+              className="group min-w-[250px] shrink-0 rounded-md border border-border bg-card p-5 text-center"
             >
               <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-gold/40 bg-gradient-to-br from-gold/30 to-teal/30 transition-colors group-hover:border-gold">
                 {speaker.image_url ? (

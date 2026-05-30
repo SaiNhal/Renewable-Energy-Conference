@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { splitLines, useWebsiteContent } from "@/hooks/useWebsiteContent";
 
-const tracks = [
+export const tracks = [
   {
     title: "Advanced Solar Energy Technologies",
     description:
@@ -161,17 +162,26 @@ const tracks = [
 
 const SessionsSection = () => {
   const [activeTrack, setActiveTrack] = useState<number | null>(null);
+  const { getSection } = useWebsiteContent();
+  const section = getSection("scientific_sessions", {
+    title: "Sessions",
+    content: tracks.map((track) => `${track.title} | ${track.description}`).join("\n"),
+  });
+  const managedTracks = splitLines(section.content).map((line) => {
+    const [title, ...descriptionParts] = line.split("|");
+    return { title: title.trim(), description: descriptionParts.join("|").trim() };
+  });
 
   return (
     <section id="sessions" className="bg-background pt-16 pb-8">
       <div className="container mx-auto px-4">
         <div className="text-center mb-8">
           <p className="section-kicker mb-2">Scientific</p>
-          <h2 className="text-3xl font-extrabold text-foreground md:text-4xl">Sessions</h2>
+          <h2 className="text-3xl font-extrabold text-foreground md:text-4xl">{section.title}</h2>
         </div>
 
         <div className="max-w-5xl mx-auto space-y-3">
-          {tracks.map((track, i) => {
+          {managedTracks.map((track, i) => {
             const isActive = activeTrack === i;
 
             return (
