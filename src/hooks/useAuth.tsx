@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AuthError, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,41 +18,84 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const authCheckId = useRef(0);
 
-  const checkAdmin = async (userId: string) => {
-    const { data } = await supabase.rpc("has_role", {
+  const checkAdmin = useCallback(async (userId: string) => {
+    const { data, error } = await supabase.rpc("has_role", {
       _user_id: userId,
       _role: "admin",
     });
-    setIsAdmin(!!data);
-  };
+
+    if (error) {
+      console.error("Unable to verify admin role:", error.message);
+      return false;
+    }
+
+    return !!data;
+  }, []);
+
+  const applySession = useCallback(async (nextSession: Session | null) => {
+    const checkId = authCheckId.current + 1;
+    authCheckId.current = checkId;
+
+    setLoading(true);
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    if (!nextSession?.user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const hasAdminRole = await checkAdmin(nextSession.user.id);
+
+      if (authCheckId.current === checkId) {
+        setIsAdmin(hasAdminRole);
+      }
+    } catch (error) {
+      if (authCheckId.current === checkId) {
+        console.error("Unable to verify admin role:", error);
+        setIsAdmin(false);
+      }
+    } finally {
+      if (authCheckId.current === checkId) {
+        setLoading(false);
+      }
+    }
+  }, [checkAdmin]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkAdmin(session.user.id);
-        } else {
-          setIsAdmin(false);
-        }
-        setLoading(false);
+      (_event, session) => {
+        setTimeout(() => {
+          void applySession(session);
+        }, 0);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdmin(session.user.id).finally(() => setLoading(false));
-        return;
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          console.error("Unable to restore auth session:", error.message);
+        }
 
-    return () => subscription.unsubscribe();
-  }, []);
+        void applySession(session);
+      })
+      .catch((error) => {
+        console.error("Unable to restore auth session:", error);
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
+        setLoading(false);
+      });
+
+    return () => {
+      authCheckId.current += 1;
+      subscription.unsubscribe();
+    };
+  }, [applySession]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
