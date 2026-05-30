@@ -412,8 +412,9 @@ const PricingSection = () => {
     }
 
     let paymentLink = paymentLinks[paymentProvider][selectedCategory.key];
+    const useRazorpayTestLink = paymentTestProvider === "razorpay" && razorpayTestPaymentLink?.trim();
 
-    if (paymentTestProvider === "razorpay" && razorpayTestPaymentLink?.trim()) {
+    if (useRazorpayTestLink) {
       paymentLink = razorpayTestPaymentLink;
     }
 
@@ -497,6 +498,11 @@ const PricingSection = () => {
       title: "Registration started",
       description: `Redirecting to ${paymentProvider}.`,
     });
+
+    if (useRazorpayTestLink && paymentLink) {
+      window.location.href = paymentLink;
+      return;
+    }
 
     if (paymentProvider === "stripe") {
       try {
