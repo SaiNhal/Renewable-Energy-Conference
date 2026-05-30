@@ -69,15 +69,39 @@ VITE_SUPABASE_PUBLISHABLE_KEY="PASTE_CURRENT_ANON_OR_PUBLISHABLE_KEY"
 
 ## Create Admin Login
 
-1. In Supabase Dashboard, open `Authentication` -> `Users`.
-2. Create a user with your admin email and password.
-3. Copy that user's UUID.
-4. Open `SQL Editor`.
-5. Run `supabase/admin_user_setup.sql` after replacing the placeholders, or uncomment the email-based block.
+**See detailed instructions:** [`ADMIN_SETUP_GUIDE.md`](./ADMIN_SETUP_GUIDE.md)
 
-After that, log in at:
+### Quick Setup (3 Steps):
 
-`/admin-login`
+1. **Get your user UUID**
+   - Go to Supabase Dashboard → `Authentication` → `Users`
+   - Click on the user you want to make admin
+   - Copy the UUID field
+
+2. **Run the SQL**
+   - Open `SQL Editor` in Supabase
+   - Edit `supabase/admin_user_setup.sql` and replace `YOUR_USER_UUID_HERE` with your actual UUID
+   - Run the query
+
+3. **Log In**
+   - Go to `/admin-login`
+   - Enter your email and password
+   - You should now have access to the Admin Panel
+
+### Alternative: Automated Setup
+
+```bash
+npm run setup-admin
+```
+
+This script will:
+- List all users in Supabase Auth
+- Let you select which user to make admin
+- Automatically assign the admin role
+- Verify the setup succeeded
+
+After that, log in at: `/admin-login`
+
 
 ## Payment Links
 
