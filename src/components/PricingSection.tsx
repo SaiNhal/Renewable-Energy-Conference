@@ -266,6 +266,9 @@ const PricingSection = () => {
     };
   }, []);
 
+  const paymentTestProvider = import.meta.env.VITE_PAYMENT_TEST_PROVIDER;
+  const razorpayTestPaymentLink = import.meta.env.VITE_RAZORPAY_TEST_PAYMENT_LINK;
+
   useEffect(() => {
     if (availableCategories.length && !availableCategories.some((category) => category.key === selectedCategoryKey)) {
       setSelectedCategoryKey(availableCategories[0].key);
@@ -408,7 +411,12 @@ const PricingSection = () => {
       setAppliedCoupon(null);
     }
 
-    const paymentLink = paymentLinks[paymentProvider][selectedCategory.key];
+    let paymentLink = paymentLinks[paymentProvider][selectedCategory.key];
+
+    if (paymentTestProvider === "razorpay" && razorpayTestPaymentLink?.trim()) {
+      paymentLink = razorpayTestPaymentLink;
+    }
+
     const effectiveDiscount = effectiveCoupon
       ? effectiveCoupon.discountAmount && effectiveCoupon.discountAmount > 0
         ? Math.min(effectiveCoupon.discountAmount, subtotalPrice)
