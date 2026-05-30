@@ -60,7 +60,8 @@ type FormValues = {
 
 type AppliedCoupon = {
   code: string;
-  discountPercent: number;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
 };
 
 const titleOptions = ["Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
@@ -209,8 +210,14 @@ const PricingSection = () => {
   const selectedCategory = allCategories.find((category) => category.key === selectedCategoryKey) ?? availableCategories[0] ?? allCategories[0];
   const registrationPrice = selectedCategory.price;
   const subtotalPrice = registrationPrice * participants;
-  const discount = appliedCoupon ? Math.min((subtotalPrice * appliedCoupon.discountPercent) / 100, subtotalPrice) : 0;
-  const totalRegistrationPrice = Math.max(registrationPrice * participants - discount, 0);
+  const discount = appliedCoupon
+    ? appliedCoupon.discountAmount && appliedCoupon.discountAmount > 0
+      ? Math.min(appliedCoupon.discountAmount, subtotalPrice)
+      : appliedCoupon.discountPercent && appliedCoupon.discountPercent > 0
+        ? Math.min((subtotalPrice * appliedCoupon.discountPercent) / 100, subtotalPrice)
+        : 0
+    : 0;
+  const totalRegistrationPrice = Math.max(subtotalPrice - discount, 0);
   const serviceCharge = totalRegistrationPrice * SERVICE_CHARGE_RATE;
   const totalPrice = totalRegistrationPrice + serviceCharge;
 
@@ -302,12 +309,19 @@ const PricingSection = () => {
 
     setAppliedCoupon({
       code: result.code,
-      discountPercent: result.discount_percent,
+      discountPercent: result.discount_percent ?? null,
+      discountAmount: result.discount_amount ?? null,
     });
+
+    const discountLabel = result.discount_amount
+      ? formatUsd(result.discount_amount)
+      : result.discount_percent
+        ? `${result.discount_percent}%`
+        : "discount";
 
     toast({
       title: "Coupon applied",
-      description: `${result.discount_percent}% discount applied to your registration amount.`,
+      description: `${discountLabel} applied to your registration amount.`,
     });
 
     return result;
@@ -386,7 +400,8 @@ const PricingSection = () => {
 
       effectiveCoupon = {
         code: couponResult.code,
-        discountPercent: couponResult.discount_percent,
+        discountPercent: couponResult.discount_percent ?? null,
+        discountAmount: couponResult.discount_amount ?? null,
       };
     } else {
       effectiveCoupon = null;
@@ -395,16 +410,27 @@ const PricingSection = () => {
 
     const paymentLink = paymentLinks[paymentProvider][selectedCategory.key];
     const effectiveDiscount = effectiveCoupon
-      ? Math.min((subtotalPrice * effectiveCoupon.discountPercent) / 100, subtotalPrice)
+      ? effectiveCoupon.discountAmount && effectiveCoupon.discountAmount > 0
+        ? Math.min(effectiveCoupon.discountAmount, subtotalPrice)
+        : effectiveCoupon.discountPercent && effectiveCoupon.discountPercent > 0
+          ? Math.min((subtotalPrice * effectiveCoupon.discountPercent) / 100, subtotalPrice)
+          : 0
       : 0;
     const effectiveRegistrationTotal = Math.max(subtotalPrice - effectiveDiscount, 0);
     const effectiveServiceCharge = effectiveRegistrationTotal * SERVICE_CHARGE_RATE;
     const effectiveTotalPrice = effectiveRegistrationTotal + effectiveServiceCharge;
+    const discountDescription = effectiveCoupon
+      ? effectiveCoupon.discountAmount && effectiveCoupon.discountAmount > 0
+        ? formatUsd(effectiveCoupon.discountAmount)
+        : effectiveCoupon.discountPercent
+          ? `${effectiveCoupon.discountPercent}%`
+          : formatUsd(effectiveDiscount)
+      : "0";
     const notes = [
       formValues.altEmail ? `Alt Email: ${formValues.altEmail}` : "",
       formValues.whatsApp ? `WhatsApp Number: ${formValues.whatsApp}` : "",
       `Participants: ${participants}`,
-      `Discount: ${formatUsd(effectiveDiscount)}`,
+      `Discount: ${discountDescription}`,
       `Service Charge: ${formatUsd(effectiveServiceCharge)}`,
       `Total Price: ${formatUsd(effectiveTotalPrice)}`,
       couponCode.trim() ? `Coupon: ${couponCode.trim()}` : "",

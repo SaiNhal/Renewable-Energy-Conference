@@ -12,11 +12,23 @@ import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 type Coupon = Tables<"coupon_codes">;
 
-const emptyCoupon = {
+type DiscountType = "percent" | "amount";
+
+interface CouponFormState {
+  code: string;
+  description: string;
+  discountType: DiscountType;
+  discountValue: number;
+  max_uses: number;
+  is_active: boolean;
+  valid_until: string;
+}
+
+const emptyCoupon: CouponFormState = {
   code: "",
   description: "",
-  discount_percent: 0,
-  discount_amount: 0,
+  discountType: "percent",
+  discountValue: 0,
   max_uses: 100,
   is_active: true,
   valid_until: "",
@@ -24,7 +36,7 @@ const emptyCoupon = {
 
 const AdminCoupons = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [form, setForm] = useState(emptyCoupon);
+  const [form, setForm] = useState<CouponFormState>(emptyCoupon);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -44,11 +56,16 @@ const AdminCoupons = () => {
       return;
     }
 
+    if (form.discountValue <= 0) {
+      toast({ title: "Discount value is required", variant: "destructive" });
+      return;
+    }
+
     const payload: TablesInsert<"coupon_codes"> = {
       code: form.code.toUpperCase(),
       description: form.description || null,
-      discount_percent: form.discount_percent || null,
-      discount_amount: form.discount_amount || null,
+      discount_percent: form.discountType === "percent" ? form.discountValue : null,
+      discount_amount: form.discountType === "amount" ? form.discountValue : null,
       max_uses: form.max_uses || null,
       is_active: form.is_active,
       valid_until: form.valid_until || null,
@@ -77,11 +94,12 @@ const AdminCoupons = () => {
   };
 
   const handleEdit = (coupon: Coupon) => {
+    const hasAmount = coupon.discount_amount != null && coupon.discount_amount > 0;
     setForm({
       code: coupon.code,
       description: coupon.description || "",
-      discount_percent: coupon.discount_percent || 0,
-      discount_amount: Number(coupon.discount_amount) || 0,
+      discountType: hasAmount ? "amount" : "percent",
+      discountValue: hasAmount ? Number(coupon.discount_amount) : coupon.discount_percent || 0,
       max_uses: coupon.max_uses || 100,
       is_active: coupon.is_active ?? true,
       valid_until: coupon.valid_until ? coupon.valid_until.split("T")[0] : "",
@@ -126,14 +144,29 @@ const AdminCoupons = () => {
             <div className="space-y-3">
               <Input placeholder="Coupon Code *" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
               <Input placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.5fr]">
                 <div>
-                  <label className="text-xs text-muted-foreground">Discount %</label>
-                  <Input type="number" value={form.discount_percent} onChange={(e) => setForm({ ...form, discount_percent: parseInt(e.target.value, 10) || 0 })} />
+                  <label className="text-xs text-muted-foreground">Discount Type</label>
+                  <select
+                    className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={form.discountType}
+                    onChange={(e) => setForm({ ...form, discountType: e.target.value as DiscountType, discountValue: 0 })}
+                  >
+                    <option value="percent">Percentage</option>
+                    <option value="amount">Fixed Amount</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Discount Amount ($)</label>
-                  <Input type="number" value={form.discount_amount} onChange={(e) => setForm({ ...form, discount_amount: parseFloat(e.target.value) || 0 })} />
+                  <label className="text-xs text-muted-foreground">
+                    {form.discountType === "percent" ? "Discount Percent (%)" : "Discount Amount ($)"}
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={form.discountValue}
+                    onChange={(e) => setForm({ ...form, discountValue: parseFloat(e.target.value) || 0 })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
